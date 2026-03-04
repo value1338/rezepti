@@ -147,28 +147,31 @@ docker run -d --name rezepti \
 
 ### Docker auf Unraid
 
-1. **Container in Unraid erstellen** (Add Container):
-   - **Repository:** `ghcr.io/value1338/rezepti:latest`
-   - **Network Type:** Bridge
-   - **Port:** Host `3003` → Container `3003`
-   - **GPU (optional):** NVIDIA-Plugin installiert? Variable `NVIDIA_VISIBLE_DEVICES` = `all` oder `GPU-UUID`; Extra Parameters `--gpus all`
+**Container in Unraid erstellen** (Add Container):
 
-3. **Variablen hinzufuegen** (Add Variable):
+| Feld | Wert |
+|------|------|
+| **Repository** | `ghcr.io/value1338/rezepti:latest` |
+| **Network Type** | Bridge |
+| **Host Port** | `3003` |
+| **Container Port** | `3003` |
+| **Extra Parameters** | `--gpus all` *(nur mit NVIDIA-Plugin)* |
 
-   | Name | Value |
-   |------|-------|
-   | `EXPORT_BACKEND` | `mealie` oder `notion` |
-   | `NVIDIA_VISIBLE_DEVICES` | `all` (alle GPUs) oder `GPU-UUID` (nur eine GPU) |
-   | `MEALIE_BASE_URL` | `http://192.168.1.168:3020` |
-   | `MEALIE_API_TOKEN` | Token aus Mealie Profil |
-   | `OLLAMA_BASE_URL` | `http://192.168.1.168:11434` |
-   | `OLLAMA_TEXT_MODEL` | `llama3.2:3b` |
-   | `OLLAMA_VISION_MODEL` | `llava:7b` |
-   | `LLAMACPP_BASE_URL` | `http://192.168.1.168:8003` |
-   | `LLAMACPP_VISION_MODEL` | `Qwen3VL-8B-Instruct-Q8_0.gguf` |
-   | `LLM_PROVIDER` | `ollama` oder `llamacpp` |
+**Variablen hinzufuegen** (Add Variable):
 
-   > **Hinweis:** Die `.env`-Datei ist in `.dockerignore` und wird nicht ins Image kopiert. Umgebungsvariablen muessen ueber die Container-Konfiguration gesetzt werden.
+| Name | Beispielwert | Beschreibung |
+|------|-------------|--------------|
+| `NVIDIA_VISIBLE_DEVICES` | `all` | GPU fuer Whisper freigeben |
+| `EXPORT_BACKEND` | `mealie` oder `notion` | Export-Ziel |
+| `MEALIE_BASE_URL` | `http://192.168.1.168:3020` | Mealie Server |
+| `MEALIE_API_TOKEN` | `dein-token` | Token aus Mealie Profil |
+| `OLLAMA_BASE_URL` | `http://192.168.1.168:11434` | Ollama Server |
+| `OLLAMA_TEXT_MODEL` | `qwen3:4b` | Textextraktion |
+| `LLAMACPP_BASE_URL` | `http://192.168.1.168:8003` | llama.cpp Server |
+| `LLAMACPP_VISION_MODEL` | `Qwen3VL-8B-Instruct-Q8_0.gguf` | Vision-Modell |
+| `LLM_PROVIDER` | `ollama` oder `llamacpp` | LLM-Backend |
+
+> **Hinweis:** Die `.env`-Datei wird nicht ins Image kopiert — alle Werte muessen als Container-Variablen gesetzt werden.
 
 ### Manuell (ohne Docker)
 

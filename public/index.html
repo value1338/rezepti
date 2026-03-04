@@ -150,7 +150,7 @@
 <body class="bg-cream font-body text-espresso min-h-screen">
 
   <!-- ═══════════════════════ HERO SECTION ═══════════════════════ -->
-  <section class="relative grain min-h-[92vh] flex flex-col items-center justify-center overflow-hidden px-4">
+  <section class="relative grain min-h-[100svh] sm:min-h-[92vh] flex flex-col items-center justify-center overflow-hidden px-4 py-12 sm:py-0">
 
     <!-- Decorative background elements -->
     <div class="spice-dot w-[340px] h-[340px] bg-saffron/[0.07] -top-20 -right-20 blur-3xl" style="position:absolute"></div>
@@ -180,13 +180,13 @@
       </div>
 
       <!-- Main title -->
-      <h1 class="hero-rise delay-2 font-display text-[clamp(2.8rem,7vw,5.2rem)] font-semibold leading-[1.05] tracking-tight mb-6 text-espresso">
+      <h1 class="hero-rise delay-2 font-display text-[clamp(2.2rem,7vw,5.2rem)] font-semibold leading-[1.05] tracking-tight mb-6 text-espresso">
         Jedes Rezept.<br>
         <span class="italic text-paprika">Ein Link entfernt.</span>
       </h1>
 
       <!-- Subtitle -->
-      <p class="hero-rise delay-3 text-warmgray text-lg md:text-xl max-w-lg mx-auto mb-10 leading-relaxed font-body">
+      <p class="hero-rise delay-3 text-warmgray text-base sm:text-lg md:text-xl max-w-lg mx-auto mb-8 leading-relaxed font-body px-2">
         Füge eine URL ein — von YouTube, Instagram, TikTok oder jeder Webseite —
         und Rezepti extrahiert das Rezept in dein Rezept-Archiv.
       </p>
@@ -205,25 +205,27 @@
 
       <!-- URL Input -->
       <form id="form-url" class="hero-rise delay-4 mb-8">
-        <div class="relative flex items-center gap-3 max-w-xl mx-auto">
-          <!-- URL icon -->
-          <div class="absolute left-4 text-warmgray/50 pointer-events-none">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-xl mx-auto">
+          <!-- Input with icon -->
+          <div class="relative flex-1">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-warmgray/50 pointer-events-none">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+            </div>
+            <input
+              id="url-input"
+              type="url"
+              placeholder="https://..."
+              required
+              class="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-espresso/[0.08] bg-white/80 backdrop-blur-sm text-espresso placeholder-warmgray/40 focus:outline-none focus:border-paprika/40 focus:bg-white text-base sm:text-lg font-body input-glow transition-all duration-300"
+            >
           </div>
-          <input
-            id="url-input"
-            type="url"
-            placeholder="https://..."
-            required
-            class="flex-1 pl-12 pr-4 py-4 rounded-2xl border-2 border-espresso/[0.08] bg-white/80 backdrop-blur-sm text-espresso placeholder-warmgray/40 focus:outline-none focus:border-paprika/40 focus:bg-white text-lg font-body input-glow transition-all duration-300"
-          >
           <button
             type="submit"
             id="submit-btn"
-            class="btn-extract px-7 py-4 rounded-2xl text-white font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none whitespace-nowrap"
+            class="btn-extract px-7 py-4 rounded-2xl text-white font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none whitespace-nowrap w-full sm:w-auto"
           >
             Extrahieren
           </button>
@@ -269,7 +271,7 @@
       </div>
 
       <!-- Platform badges -->
-      <div class="hero-rise delay-5 flex items-center justify-center gap-3 flex-wrap">
+      <div class="hero-rise delay-5 flex items-center justify-center gap-2 sm:gap-3 flex-wrap px-2">
         <span class="text-warmgray/50 text-sm mr-1">Unterstützt</span>
 
         <!-- YouTube -->
@@ -330,17 +332,17 @@
       </div>
 
       <!-- How it works hint -->
-      <div class="hero-fade delay-6 mt-16 flex items-center justify-center gap-8 text-warmgray/50 text-xs tracking-wide uppercase">
+      <div class="hero-fade delay-6 mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-warmgray/50 text-xs tracking-wide uppercase">
         <span class="flex items-center gap-2">
           <span class="w-6 h-6 rounded-full bg-paprika/10 flex items-center justify-center text-paprika text-[10px] font-bold font-display">1</span>
           Link einfügen
         </span>
-        <span class="text-warmgray/20">/</span>
+        <span class="text-warmgray/20 hidden sm:inline">/</span>
         <span class="flex items-center gap-2">
           <span class="w-6 h-6 rounded-full bg-paprika/10 flex items-center justify-center text-paprika text-[10px] font-bold font-display">2</span>
           KI extrahiert
         </span>
-        <span class="text-warmgray/20">/</span>
+        <span class="text-warmgray/20 hidden sm:inline">/</span>
         <span class="flex items-center gap-2">
           <span class="w-6 h-6 rounded-full bg-paprika/10 flex items-center justify-center text-paprika text-[10px] font-bold font-display">3</span>
           <span id="step3-label">In Notion speichern</span>
@@ -388,11 +390,11 @@
         <!-- Cover image -->
         <div id="recipe-cover" class="h-56 bg-espresso/5 bg-cover bg-center hidden"></div>
 
-        <div class="p-8">
+        <div class="p-4 sm:p-8">
           <!-- Title -->
-          <div class="flex items-center gap-4 mb-5">
-            <span id="recipe-emoji" class="text-4xl"></span>
-            <h2 id="recipe-name" class="text-2xl font-display font-semibold text-espresso"></h2>
+          <div class="flex items-center gap-3 mb-5">
+            <span id="recipe-emoji" class="text-3xl sm:text-4xl flex-shrink-0"></span>
+            <h2 id="recipe-name" class="text-xl sm:text-2xl font-display font-semibold text-espresso"></h2>
           </div>
 
           <!-- Meta -->
@@ -412,7 +414,7 @@
               id="notion-url"
               href="#"
               target="_blank"
-              class="btn-notion inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold font-body"
+              class="btn-notion inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-semibold font-body w-full sm:w-auto"
             >
               <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
                 <path d="M6.017 4.313l55.333-4.087c6.797-.583 8.543-.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277-1.553 6.807-6.99 7.193L24.467 99.967c-4.08.193-6.023-.39-8.16-3.113L3.3 79.94c-2.333-3.113-3.3-5.443-3.3-8.167V11.113c0-3.497 1.553-6.413 6.017-6.8z" fill="white"/>
