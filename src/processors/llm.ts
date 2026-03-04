@@ -84,7 +84,7 @@ async function llamaCppChat(
     model: visionModel,
     messages,
     temperature: 0.3,
-    max_tokens: 4096,
+    max_tokens: 8192,
     response_format: { type: "json_object" },
   };
 

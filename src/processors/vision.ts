@@ -153,7 +153,7 @@ async function extractViaLlamaCpp(images: PhotoInput[]): Promise<RecipeData> {
       },
     ],
     temperature: 0.2,
-    max_tokens: 4096,
+    max_tokens: 8192,
     response_format: { type: "json_object" },
   };
 
