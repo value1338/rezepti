@@ -5,7 +5,7 @@ import type { SchemaOrgRecipe, RecipeData } from "../types.js";
  */
 function parseDuration(iso?: string): number | null {
   if (!iso) return null;
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
+  const match = iso.match(/P(?:\d+D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
   if (!match) return null;
   const hours = parseInt(match[1] || "0", 10);
   const minutes = parseInt(match[2] || "0", 10);
