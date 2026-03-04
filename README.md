@@ -1,8 +1,25 @@
 # Rezepti
 
-> **Fork von [keno303/rezepti](https://github.com/keno303/rezepti)** — erweitert um Foto-Upload, Mealie-Export, llama.cpp als LLM-Backend und Docker/Unraid-Optimierungen.
-
 **Rezepte aus dem Netz — direkt nach Notion oder Mealie.**
+
+```bash
+docker pull ghcr.io/value1338/rezepti:latest
+```
+
+```bash
+docker run -d --name rezepti -p 3003:3003 \
+  -e EXPORT_BACKEND=mealie \
+  -e MEALIE_BASE_URL=http://192.168.1.168:3020 \
+  -e MEALIE_API_TOKEN=dein-token \
+  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
+  ghcr.io/value1338/rezepti:latest
+```
+
+Dann `http://localhost:3003` oeffnen — der Setup-Wizard fuehrt durch die Konfiguration.
+
+---
+
+> **Fork von [keno303/rezepti](https://github.com/keno303/rezepti)** — erweitert um Foto-Upload, Mealie-Export, llama.cpp als LLM-Backend und Docker/Unraid-Optimierungen.
 
 Rezepti ist ein selbstgehosteter Webservice, der Rezepte aus URLs und Fotos extrahiert und als strukturierte Eintraege speichert. Einfach einen Link einfuegen oder ein Foto hochladen — Rezepti erledigt den Rest. Alle Rezepte werden auf Deutsch ausgegeben.
 
@@ -101,50 +118,6 @@ ollama pull llava-llama3:8b    # Alternative (~5 GB)
 
 ## Installation
 
-### Docker (empfohlen)
-
-Das Docker-Image enthaelt `ffmpeg`, `yt-dlp` und `whisper-cpp` (CUDA mit CPU-Fallback) mit dem Modell `ggml-large-v3-turbo`.
-
-```bash
-# Fertig gebautes Image pullen (empfohlen)
-docker pull ghcr.io/value1338/rezepti:latest
-
-# Container starten (ohne GPU: Whisper nutzt CPU)
-docker run -d \
-  --name rezepti \
-  -p 3003:3003 \
-  -e EXPORT_BACKEND=mealie \
-  -e MEALIE_BASE_URL=http://192.168.1.168:3020 \
-  -e MEALIE_API_TOKEN=dein-token \
-  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
-  ghcr.io/value1338/rezepti:latest
-
-# Mit GPU (NVIDIA Container Toolkit erforderlich)
-docker run -d --name rezepti --gpus all -p 3003:3003 \
-  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
-  ghcr.io/value1338/rezepti:latest
-
-# Nur eine bestimmte GPU (per UUID)
-docker run -d --name rezepti \
-  --gpus "device=GPU-21f961fd-e414-a9ed-c799-77876d7b8438" \
-  -p 3003:3003 \
-  ghcr.io/value1338/rezepti:latest
-```
-
-> Selbst bauen (nur noetig bei Code-Aenderungen):
-> ```bash
-> docker build -t rezepti .
-> ```
-
-**Whisper GPU-Steuerung:** Ohne GPU-Parameter nutzt Whisper automatisch die CPU. Mit folgenden Optionen laesst sich die GPU nutzen:
-
-| Option / Variable | Beschreibung |
-|-------------------|--------------|
-| `--gpus all` | Alle GPUs fuer Whisper |
-| `--gpus "device=GPU-UUID"` | Nur diese GPU (z.B. `GPU-21f961fd-e414-a9ed-c799-77876d7b8438`) |
-| `NVIDIA_VISIBLE_DEVICES=all` | Alle GPUs (benoetigt `--gpus all`) |
-| `NVIDIA_VISIBLE_DEVICES=GPU-UUID` | Nur diese GPU filtern |
-
 ### Docker auf Unraid
 
 **Container in Unraid erstellen** (Add Container):
@@ -173,12 +146,41 @@ docker run -d --name rezepti \
 
 > **Hinweis:** Die `.env`-Datei wird nicht ins Image kopiert — alle Werte muessen als Container-Variablen gesetzt werden.
 
+### Docker (weitere Optionen)
+
+```bash
+# Mit GPU (NVIDIA Container Toolkit erforderlich)
+docker run -d --name rezepti --gpus all -p 3003:3003 \
+  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
+  ghcr.io/value1338/rezepti:latest
+
+# Nur eine bestimmte GPU (per UUID)
+docker run -d --name rezepti \
+  --gpus "device=GPU-21f961fd-e414-a9ed-c799-77876d7b8438" \
+  -p 3003:3003 \
+  ghcr.io/value1338/rezepti:latest
+```
+
+**Whisper GPU-Steuerung:**
+
+| Option / Variable | Beschreibung |
+|-------------------|--------------|
+| `--gpus all` | Alle GPUs fuer Whisper |
+| `--gpus "device=GPU-UUID"` | Nur diese GPU |
+| `NVIDIA_VISIBLE_DEVICES=all` | Alle GPUs (benoetigt `--gpus all`) |
+| `NVIDIA_VISIBLE_DEVICES=GPU-UUID` | Nur diese GPU filtern |
+
+> Selbst bauen (nur noetig bei Code-Aenderungen):
+> ```bash
+> docker build -t rezepti .
+> ```
+
 ### Manuell (ohne Docker)
 
 Voraussetzungen: Node.js v20+, ffmpeg, yt-dlp, whisper-cpp (optional), Ollama oder llama.cpp
 
 ```bash
-git clone https://github.com/keno303/rezepti.git
+git clone https://github.com/value1338/rezepti.git
 cd rezepti
 npm install
 cp .env.example .env   # Werte eintragen
@@ -251,6 +253,21 @@ MIT
 
 **Extract recipes from the web — straight to Notion or Mealie.**
 
+```bash
+docker pull ghcr.io/value1338/rezepti:latest
+```
+
+```bash
+docker run -d --name rezepti -p 3003:3003 \
+  -e EXPORT_BACKEND=mealie \
+  -e MEALIE_BASE_URL=http://192.168.1.168:3020 \
+  -e MEALIE_API_TOKEN=your-token \
+  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
+  ghcr.io/value1338/rezepti:latest
+```
+
+Open `http://localhost:3003` — the setup wizard guides you through configuration.
+
 Rezepti is a self-hosted web service that extracts recipes from URLs and photos, saving them as structured entries. Just paste a link or upload a photo — Rezepti does the rest. All recipes are output in German.
 
 ### Changes vs. the original
@@ -272,27 +289,6 @@ Rezepti is a self-hosted web service that extracts recipes from URLs and photos,
 - **Two LLM backends:** Ollama (separate text + vision models) or llama.cpp (single model via OpenAI-compatible API)
 - **Audio transcription:** Built-in whisper-cpp (CUDA + CPU fallback) for video recipes without subtitles
 - **Docker-ready:** Image includes ffmpeg, yt-dlp, whisper-cpp with large-v3-turbo. Add `--gpus all` for GPU acceleration.
-
-## Quick Start (Docker)
-
-```bash
-docker pull ghcr.io/value1338/rezepti:latest
-
-# Without GPU: Whisper uses CPU
-docker run -d --name rezepti -p 3003:3003 \
-  -e EXPORT_BACKEND=mealie \
-  -e MEALIE_BASE_URL=http://192.168.1.168:3020 \
-  -e MEALIE_API_TOKEN=your-token \
-  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
-  ghcr.io/value1338/rezepti:latest
-
-# With GPU (requires NVIDIA Container Toolkit):
-docker run -d --name rezepti --gpus all -p 3003:3003 \
-  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
-  ghcr.io/value1338/rezepti:latest
-```
-
-Open `http://localhost:3003` — the setup wizard guides you through configuration.
 
 ## LLM Backend
 
