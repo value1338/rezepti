@@ -88,23 +88,27 @@ app.get("/api/extract", async (c) => {
 // Image upload endpoint – streamt SSE über fetch (kein EventSource nötig)
 app.post("/api/extract-image", async (c) => {
   const formData = await c.req.formData();
-  const file = formData.get("image");
+  const files = formData.getAll("image");
 
-  if (!file || !(file instanceof File)) {
+  if (files.length === 0) {
     return c.json({ error: "Kein Bild hochgeladen (Feld: image)" }, 400);
   }
 
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  if (!allowedTypes.includes(file.type)) {
-    return c.json(
-      { error: `Nicht unterstütztes Bildformat: ${file.type}` },
-      400
-    );
+  const images: { buffer: Buffer; mimeType: string }[] = [];
+
+  for (const file of files) {
+    if (!(file instanceof File)) continue;
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ error: `Nicht unterstütztes Bildformat: ${file.type}` }, 400);
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    images.push({ buffer, mimeType: file.type });
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const imageBuffer = Buffer.from(arrayBuffer);
-  const mimeType = file.type;
+  if (images.length === 0) {
+    return c.json({ error: "Keine gültigen Bilder hochgeladen" }, 400);
+  }
 
   return streamSSE(c, async (stream) => {
     const sendEvent = async (event: PipelineEvent) => {
@@ -114,7 +118,7 @@ app.post("/api/extract-image", async (c) => {
       });
     };
 
-    await processImage(imageBuffer, mimeType, sendEvent);
+    await processImage(images, sendEvent);
   });
 });
 

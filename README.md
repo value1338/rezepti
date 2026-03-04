@@ -15,7 +15,7 @@ Rezepti ist ein selbstgehosteter Webservice, der Rezepte aus URLs und Fotos extr
 | 3 | **llama.cpp Backend** | Vollstaendige Alternative zu Ollama — ein Modell (z.B. Qwen3VL-8B) fuer Text + Vision |
 | 4 | **Setup-Wizard** | Schritt-fuer-Schritt Einrichtung unter `/setup` statt manueller .env-Konfiguration |
 | 5 | **Settings-Modal** | Einstellungen jederzeit aenderbar direkt in der Hauptansicht (Zahnrad-Icon) |
-| 6 | **All-in-One Docker** | ffmpeg, yt-dlp und whisper-cpp (inkl. large-v3-turbo Modell) sind direkt im Image — nur Ollama oder llama.cpp laeuft extern. Keine weiteren Abhaengigkeiten noetig. |
+| 6 | **All-in-One Docker** | ffmpeg, yt-dlp und whisper-cpp (CUDA + CPU-Fallback, large-v3-turbo) im Image — nur Ollama oder llama.cpp laeuft extern. GPU optional via `--gpus all`. |
 | 7 | **Robustheit** | Optionale Felder (`emoji`, `calories`, `servings`) mit Zod-Defaults — kein Absturz wenn llama.cpp Felder wegglaesst |
 
 ## Funktionsweise
@@ -74,6 +74,10 @@ ollama pull llava-llama3:8b    # Alternative (~5 GB)
 > ollama list
 > ```
 
+> ⚠️ **Hinweis Foto-Upload mit Ollama:** Ollama-Vision-Modelle neigen bei Rezeptfotos zum Halluzinieren — sie "erfinden" Zutaten statt den tatsaechlichen Text zu lesen (OCR). Das liegt am Modellverhalten, nicht an der Konfiguration. Auch innerhalb von Unraid-Containern kann der Zugriff auf den Ollama-Host Probleme bereiten.
+>
+> **Fuer Foto-Upload wird Option B (llama.cpp) empfohlen.** Qwen3VL-8B ist speziell auf OCR und Texterkennung in Bildern optimiert und liefert zuverlassig korrekte Ergebnisse.
+
 | Variable | Standard | Beschreibung |
 |----------|----------|--------------|
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama Server-URL |
@@ -99,13 +103,13 @@ ollama pull llava-llama3:8b    # Alternative (~5 GB)
 
 ### Docker (empfohlen)
 
-Das Docker-Image enthaelt bereits `ffmpeg`, `yt-dlp` und `whisper-cpp` mit dem Modell `ggml-large-v3-turbo`.
+Das Docker-Image enthaelt `ffmpeg`, `yt-dlp` und `whisper-cpp` (CUDA mit CPU-Fallback) mit dem Modell `ggml-large-v3-turbo`.
 
 ```bash
-# Image bauen
-docker build -t rezepti .
+# Fertig gebautes Image pullen (empfohlen)
+docker pull ghcr.io/value1338/rezepti:latest
 
-# Container starten
+# Container starten (ohne GPU: Whisper nutzt CPU)
 docker run -d \
   --name rezepti \
   -p 3003:3003 \
@@ -113,26 +117,48 @@ docker run -d \
   -e MEALIE_BASE_URL=http://192.168.1.168:3020 \
   -e MEALIE_API_TOKEN=dein-token \
   -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
-  rezepti
+  ghcr.io/value1338/rezepti:latest
+
+# Mit GPU (NVIDIA Container Toolkit erforderlich)
+docker run -d --name rezepti --gpus all -p 3003:3003 \
+  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
+  ghcr.io/value1338/rezepti:latest
+
+# Nur eine bestimmte GPU (per UUID)
+docker run -d --name rezepti \
+  --gpus "device=GPU-21f961fd-e414-a9ed-c799-77876d7b8438" \
+  -p 3003:3003 \
+  ghcr.io/value1338/rezepti:latest
 ```
+
+> Selbst bauen (nur noetig bei Code-Aenderungen):
+> ```bash
+> docker build -t rezepti .
+> ```
+
+**Whisper GPU-Steuerung:** Ohne GPU-Parameter nutzt Whisper automatisch die CPU. Mit folgenden Optionen laesst sich die GPU nutzen:
+
+| Option / Variable | Beschreibung |
+|-------------------|--------------|
+| `--gpus all` | Alle GPUs fuer Whisper |
+| `--gpus "device=GPU-UUID"` | Nur diese GPU (z.B. `GPU-21f961fd-e414-a9ed-c799-77876d7b8438`) |
+| `NVIDIA_VISIBLE_DEVICES=all` | Alle GPUs (benoetigt `--gpus all`) |
+| `NVIDIA_VISIBLE_DEVICES=GPU-UUID` | Nur diese GPU filtern |
 
 ### Docker auf Unraid
 
-1. **Image bauen:**
-   ```bash
-   docker build -t rezepti:dev /mnt/user/appdata/rezepti-image
-   ```
-
-2. **Container in Unraid erstellen** (Add Container):
-   - **Repository:** `rezepti:dev`
+1. **Container in Unraid erstellen** (Add Container):
+   - **Repository:** `ghcr.io/value1338/rezepti:latest`
    - **Network Type:** Bridge
    - **Port:** Host `3003` → Container `3003`
+   - **GPU (optional):** NVIDIA-Plugin installiert? Variable `NVIDIA_VISIBLE_DEVICES` = `all` oder `GPU-UUID`; Extra Parameters `--gpus all`
 
 3. **Variablen hinzufuegen** (Add Variable):
 
    | Name | Value |
    |------|-------|
    | `EXPORT_BACKEND` | `mealie` oder `notion` |
+   | `NVIDIA_VISIBLE_DEVICES` | `all` (alle GPUs) oder `GPU-UUID` (nur eine GPU) |
    | `MEALIE_BASE_URL` | `http://192.168.1.168:3020` |
    | `MEALIE_API_TOKEN` | Token aus Mealie Profil |
    | `OLLAMA_BASE_URL` | `http://192.168.1.168:11434` |
@@ -233,7 +259,7 @@ Rezepti is a self-hosted web service that extracts recipes from URLs and photos,
 | 3 | **llama.cpp backend** | Full alternative to Ollama — one model (e.g. Qwen3VL-8B) for text + vision |
 | 4 | **Setup wizard** | Step-by-step setup at `/setup` instead of manual `.env` editing |
 | 5 | **Settings modal** | Change settings anytime from the main view (gear icon) |
-| 6 | **All-in-One Docker** | ffmpeg, yt-dlp and whisper-cpp (incl. large-v3-turbo model) are built into the image — only Ollama or llama.cpp runs externally. No further dependencies needed. |
+| 6 | **All-in-One Docker** | ffmpeg, yt-dlp and whisper-cpp (CUDA + CPU fallback, large-v3-turbo) in the image — only Ollama or llama.cpp runs externally. GPU optional via `--gpus all`. |
 | 7 | **Robustness** | Optional fields (`emoji`, `calories`, `servings`) with Zod defaults — no crash when llama.cpp omits fields |
 
 ## Features
@@ -241,19 +267,26 @@ Rezepti is a self-hosted web service that extracts recipes from URLs and photos,
 - **Multiple sources:** YouTube, Instagram, TikTok, any website, photo upload
 - **Two export targets:** Notion database or Mealie v1 server
 - **Two LLM backends:** Ollama (separate text + vision models) or llama.cpp (single model via OpenAI-compatible API)
-- **Audio transcription:** Built-in whisper-cpp for video recipes without subtitles
-- **Docker-ready:** Image includes ffmpeg, yt-dlp, whisper-cpp with large-v3-turbo model
+- **Audio transcription:** Built-in whisper-cpp (CUDA + CPU fallback) for video recipes without subtitles
+- **Docker-ready:** Image includes ffmpeg, yt-dlp, whisper-cpp with large-v3-turbo. Add `--gpus all` for GPU acceleration.
 
 ## Quick Start (Docker)
 
 ```bash
-docker build -t rezepti .
-docker run -d -p 3003:3003 \
+docker pull ghcr.io/value1338/rezepti:latest
+
+# Without GPU: Whisper uses CPU
+docker run -d --name rezepti -p 3003:3003 \
   -e EXPORT_BACKEND=mealie \
   -e MEALIE_BASE_URL=http://192.168.1.168:3020 \
   -e MEALIE_API_TOKEN=your-token \
   -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
-  rezepti
+  ghcr.io/value1338/rezepti:latest
+
+# With GPU (requires NVIDIA Container Toolkit):
+docker run -d --name rezepti --gpus all -p 3003:3003 \
+  -e OLLAMA_BASE_URL=http://192.168.1.168:11434 \
+  ghcr.io/value1338/rezepti:latest
 ```
 
 Open `http://localhost:3003` — the setup wizard guides you through configuration.
@@ -266,6 +299,10 @@ Open `http://localhost:3003` — the setup wizard guides you through configurati
 | **Setup** | `ollama pull qwen3:4b && ollama pull minicpm-v:8b` (or any text+vision model) | Run llama-server with a vision model |
 | **Config** | `OLLAMA_BASE_URL` | `LLAMACPP_BASE_URL` + `LLAMACPP_VISION_MODEL` |
 | **Switch** | `LLM_PROVIDER=ollama` | `LLM_PROVIDER=llamacpp` |
+
+> ⚠️ **Photo upload with Ollama:** Ollama vision models tend to hallucinate on recipe photos — they invent ingredients instead of reading the actual text (OCR). This is a model behavior issue, not a configuration problem. Additionally, accessing the Ollama host from within a container (e.g. Unraid) can cause connectivity issues.
+>
+> **llama.cpp (Option B) is recommended for photo upload.** Qwen3VL-8B is specifically optimized for OCR and text recognition in images.
 
 ## API
 

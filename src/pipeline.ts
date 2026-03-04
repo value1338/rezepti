@@ -9,7 +9,7 @@ import {
   extractRecipeFromImage,
   refineRecipe,
 } from "./processors/llm.js";
-import { extractRecipeFromPhoto } from "./processors/vision.js";
+import { extractRecipeFromPhoto, type PhotoInput } from "./processors/vision.js";
 import { transcribeAudio } from "./processors/whisper.js";
 import { exportRecipe } from "./export.js";
 import { createTempDir, cleanupTempDir } from "./temp.js";
@@ -145,17 +145,19 @@ export async function processURL(
 }
 
 export async function processImage(
-  imageBuffer: Buffer,
-  mimeType: string,
+  images: PhotoInput | PhotoInput[],
   onEvent: EventCallback
 ): Promise<PipelineResult> {
+  const list = Array.isArray(images) ? images : [images];
   try {
     await emit(onEvent, {
       stage: "analyzing_image",
-      message: "Foto wird mit Vision-Modell analysiert...",
+      message: list.length > 1
+        ? `${list.length} Fotos werden mit Vision-Modell analysiert...`
+        : "Foto wird mit Vision-Modell analysiert...",
     });
 
-    const recipe = await extractRecipeFromPhoto(imageBuffer, mimeType);
+    const recipe = await extractRecipeFromPhoto(list);
 
     await emit(onEvent, {
       stage: "extracting",

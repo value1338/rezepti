@@ -245,19 +245,18 @@
             <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
             <circle cx="12" cy="13" r="3"/>
           </svg>
-          <span id="drop-label" class="text-warmgray text-sm font-body">Foto hierhin ziehen oder <span class="text-paprika font-semibold">auswählen</span></span>
-          <span class="text-warmgray/40 text-xs">JPG, PNG, WEBP</span>
-          <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden">
+          <span id="drop-label" class="text-warmgray text-sm font-body">Fotos hierhin ziehen oder <span class="text-paprika font-semibold">auswählen</span></span>
+          <span class="text-warmgray/40 text-xs">JPG, PNG, WEBP · Mehrere Seiten möglich</span>
+          <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden">
         </label>
-        <div id="photo-preview-wrap" class="hidden mt-3 flex items-center gap-3 bg-white/80 rounded-xl px-4 py-3 border border-espresso/[0.06]">
-          <img id="photo-preview" src="" alt="Vorschau" class="w-14 h-14 rounded-lg object-cover flex-shrink-0">
-          <div class="flex-1 min-w-0">
-            <p id="photo-name" class="text-sm font-semibold text-espresso truncate"></p>
-            <p id="photo-size" class="text-xs text-warmgray"></p>
+        <!-- Thumbnail-Grid für mehrere Bilder -->
+        <div id="photo-preview-grid" class="hidden mt-3 grid grid-cols-3 gap-2"></div>
+        <div id="photo-preview-actions" class="hidden mt-2 flex items-center justify-between">
+          <span id="photo-count-label" class="text-xs text-warmgray"></span>
+          <div class="flex gap-2">
+            <label for="photo-input" class="text-xs text-paprika cursor-pointer hover:underline">+ Weitere hinzufügen</label>
+            <button type="button" onclick="clearPhoto()" class="text-xs text-warmgray/60 hover:text-paprika transition-colors">Alle entfernen</button>
           </div>
-          <button type="button" onclick="clearPhoto()" class="text-warmgray/50 hover:text-paprika transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
         </div>
         <button
           id="photo-submit-btn"
@@ -471,14 +470,15 @@
         : 'px-5 py-2 rounded-xl text-sm font-semibold font-body transition-all duration-200 text-warmgray hover:text-espresso';
     }
 
-    // Photo input handling
-    let selectedFile = null;
+    // Photo input handling — multi-file
+    let selectedFiles = [];
 
     const photoInput = document.getElementById('photo-input');
     const dropZone = document.getElementById('drop-zone');
 
     photoInput.addEventListener('change', () => {
-      if (photoInput.files[0]) setPhoto(photoInput.files[0]);
+      addFiles(Array.from(photoInput.files));
+      photoInput.value = ''; // reset so same file can be re-added after clear
     });
 
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-paprika/40'); });
@@ -486,32 +486,69 @@
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('border-paprika/40');
-      if (e.dataTransfer.files[0]) setPhoto(e.dataTransfer.files[0]);
+      addFiles(Array.from(e.dataTransfer.files));
     });
 
-    function setPhoto(file) {
-      selectedFile = file;
-      document.getElementById('photo-name').textContent = file.name;
-      document.getElementById('photo-size').textContent = (file.size / 1024).toFixed(0) + ' KB';
-      const reader = new FileReader();
-      reader.onload = (e) => { document.getElementById('photo-preview').src = e.target.result; };
-      reader.readAsDataURL(file);
-      document.getElementById('photo-preview-wrap').classList.remove('hidden');
-      document.getElementById('photo-preview-wrap').style.display = 'flex';
-      document.getElementById('drop-label').textContent = 'Anderes Foto wählen';
+    function addFiles(files) {
+      const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+      for (const f of files) {
+        if (allowed.includes(f.type) && !selectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+          selectedFiles.push(f);
+        }
+      }
+      renderPhotoGrid();
+    }
+
+    function renderPhotoGrid() {
+      const grid = document.getElementById('photo-preview-grid');
+      const actions = document.getElementById('photo-preview-actions');
+      const countLabel = document.getElementById('photo-count-label');
+      grid.innerHTML = '';
+      if (selectedFiles.length === 0) {
+        grid.classList.add('hidden');
+        actions.classList.add('hidden');
+        document.getElementById('drop-label').innerHTML = 'Fotos hierhin ziehen oder <span class="text-paprika font-semibold">auswählen</span>';
+        document.getElementById('photo-submit-btn').disabled = true;
+        return;
+      }
+      grid.classList.remove('hidden');
+      actions.classList.remove('hidden');
+      countLabel.textContent = selectedFiles.length === 1 ? '1 Foto ausgewählt' : `${selectedFiles.length} Fotos ausgewählt`;
+      document.getElementById('drop-label').innerHTML = 'Weitere Fotos hinzufügen';
       document.getElementById('photo-submit-btn').disabled = false;
+
+      selectedFiles.forEach((file, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'relative group';
+        const img = document.createElement('img');
+        img.className = 'w-full h-24 object-cover rounded-xl border border-espresso/[0.08]';
+        img.alt = file.name;
+        const reader = new FileReader();
+        reader.onload = (e) => { img.src = e.target.result; };
+        reader.readAsDataURL(file);
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'absolute top-1 right-1 bg-white/90 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-warmgray hover:text-paprika';
+        del.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        del.onclick = () => { selectedFiles.splice(idx, 1); renderPhotoGrid(); };
+        const pageNum = document.createElement('span');
+        pageNum.className = 'absolute bottom-1 left-1 bg-black/50 text-white text-xs rounded px-1';
+        pageNum.textContent = `S.${idx + 1}`;
+        wrap.appendChild(img);
+        wrap.appendChild(del);
+        wrap.appendChild(pageNum);
+        grid.appendChild(wrap);
+      });
     }
 
     function clearPhoto() {
-      selectedFile = null;
+      selectedFiles = [];
       photoInput.value = '';
-      document.getElementById('photo-preview-wrap').classList.add('hidden');
-      document.getElementById('drop-label').innerHTML = 'Foto hierhin ziehen oder <span class="text-paprika font-semibold">auswählen</span>';
-      document.getElementById('photo-submit-btn').disabled = true;
+      renderPhotoGrid();
     }
 
     async function submitPhoto() {
-      if (!selectedFile) return;
+      if (selectedFiles.length === 0) return;
 
       const btn = document.getElementById('photo-submit-btn');
       btn.disabled = true;
@@ -522,7 +559,7 @@
       progress.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       const formData = new FormData();
-      formData.append('image', selectedFile);
+      for (const f of selectedFiles) formData.append('image', f);
 
       try {
         const response = await fetch('/api/extract-image', { method: 'POST', body: formData });

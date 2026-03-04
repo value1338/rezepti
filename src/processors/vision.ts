@@ -4,9 +4,9 @@ import { RecipeDataSchema, type RecipeData } from "../types.js";
 
 const SYSTEM_PROMPT = `Du bist ein OCR- und Rezept-Extraktor. Deine Aufgabe:
 
-WICHTIG: Lies den tatsächlich im Bild sichtbaren Text (handgeschrieben oder gedruckt) und extrahiere NUR das, was dort steht. Erfinde KEINE Zutaten oder Schritte, die nicht im Bild stehen.
+WICHTIG: Lies den tatsächlich im Bild/in den Bildern sichtbaren Text (handgeschrieben oder gedruckt) und extrahiere NUR das, was dort steht. Erfinde KEINE Zutaten oder Schritte, die nicht im Bild stehen. Falls mehrere Bilder vorhanden sind (z.B. mehrseitiges Rezept), kombiniere alle Informationen zu einem vollständigen Rezept.
 
-1. Lese den Text im Bild sorgfältig (OCR). Das Bild zeigt ein Rezept — handgeschrieben, gedruckt oder als Foto einer Rezeptkarte.
+1. Lese den Text in allen Bildern sorgfältig (OCR). Die Bilder zeigen ein Rezept — handgeschrieben, gedruckt oder als Foto einer Rezeptkarte (evtl. mehrere Seiten).
 2. Extrahiere Rezeptname, Zutaten und Zubereitungsschritte AUSSCHLIESSLICH aus dem gelesenen Text.
 3. Übersetze ALLES ins Deutsche (Rezeptname, Zutaten, Schritte).
 4. Konvertiere alle Mengenangaben in metrische Einheiten:
@@ -73,26 +73,32 @@ function extractJson(text: string): string {
   return text.trim();
 }
 
+export interface PhotoInput {
+  buffer: Buffer;
+  mimeType: string;
+}
+
 /**
- * Extrahiert ein Rezept aus einem Foto.
+ * Extrahiert ein Rezept aus einem oder mehreren Fotos.
  * Wählt automatisch den konfigurierten Vision-Provider (llama.cpp oder Ollama).
  */
 export async function extractRecipeFromPhoto(
-  imageBuffer: Buffer,
-  mimeType: string
+  images: PhotoInput | PhotoInput[]
 ): Promise<RecipeData> {
+  const list = Array.isArray(images) ? images : [images];
   if (config.llmProvider === "ollama") {
-    return extractViaOllama(imageBuffer);
+    return extractViaOllama(list);
   }
-  return extractViaLlamaCpp(imageBuffer, mimeType);
+  return extractViaLlamaCpp(list);
 }
 
 /**
  * Vision via Ollama (nutzt das konfigurierte ollama.visionModel).
  */
-async function extractViaOllama(imageBuffer: Buffer): Promise<RecipeData> {
+async function extractViaOllama(images: PhotoInput[]): Promise<RecipeData> {
   const ollama = new Ollama({ host: config.ollama.baseUrl });
-  const base64Image = imageBuffer.toString("base64");
+  const base64Images = images.map((img) => img.buffer.toString("base64"));
+  const pageHint = images.length > 1 ? ` (${images.length} Seiten, bitte alle kombinieren)` : "";
 
   const response = await ollama.chat({
     model: config.ollama.visionModel,
@@ -100,8 +106,8 @@ async function extractViaOllama(imageBuffer: Buffer): Promise<RecipeData> {
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: "Lies den Text in diesem Bild sorgfältig (OCR) und extrahiere das Rezept ausschließlich aus dem sichtbaren Text. Erfinde nichts. Antworte ausschließlich mit dem JSON-Objekt.",
-        images: [base64Image],
+        content: `Lies den Text in ${images.length > 1 ? "diesen Bildern" : "diesem Bild"} sorgfältig (OCR)${pageHint} und extrahiere das Rezept ausschließlich aus dem sichtbaren Text. Erfinde nichts. Antworte ausschließlich mit dem JSON-Objekt.`,
+        images: base64Images,
       },
     ],
     format: buildRecipeJsonSchema(),
@@ -115,10 +121,7 @@ async function extractViaOllama(imageBuffer: Buffer): Promise<RecipeData> {
 /**
  * Vision via llama.cpp (OpenAI-kompatible API).
  */
-async function extractViaLlamaCpp(
-  imageBuffer: Buffer,
-  mimeType: string
-): Promise<RecipeData> {
+async function extractViaLlamaCpp(images: PhotoInput[]): Promise<RecipeData> {
   const { baseUrl, visionModel } = config.llamaCpp;
   if (!baseUrl) {
     throw new Error(
@@ -126,8 +129,11 @@ async function extractViaLlamaCpp(
     );
   }
 
-  const base64 = imageBuffer.toString("base64");
-  const dataUrl = `data:${mimeType};base64,${base64}`;
+  const pageHint = images.length > 1 ? ` (${images.length} Seiten, bitte alle kombinieren)` : "";
+  const imageContent = images.map((img) => ({
+    type: "image_url" as const,
+    image_url: { url: `data:${img.mimeType};base64,${img.buffer.toString("base64")}` },
+  }));
 
   const body = {
     model: visionModel,
@@ -136,10 +142,10 @@ async function extractViaLlamaCpp(
       {
         role: "user",
         content: [
-          { type: "image_url", image_url: { url: dataUrl } },
+          ...imageContent,
           {
             type: "text",
-            text: "Lies den Text in diesem Bild sorgfältig (OCR) und extrahiere das Rezept ausschließlich aus dem sichtbaren Text. Erfinde nichts. Antworte ausschließlich mit dem JSON-Objekt.",
+            text: `Lies den Text in ${images.length > 1 ? "diesen Bildern" : "diesem Bild"} sorgfältig (OCR)${pageHint} und extrahiere das Rezept ausschließlich aus dem sichtbaren Text. Erfinde nichts. Antworte ausschließlich mit dem JSON-Objekt.`,
           },
         ],
       },
