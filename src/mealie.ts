@@ -1,0 +1,113 @@
+import { config } from "./config.js";
+import type { RecipeData } from "./types.js";
+
+function getBaseUrl(): string {
+  if (!config.mealie.baseUrl || !config.mealie.apiToken) {
+    throw new Error(
+      "Mealie nicht konfiguriert. MEALIE_BASE_URL und MEALIE_API_TOKEN in .env setzen."
+    );
+  }
+  return config.mealie.baseUrl;
+}
+
+function getAuthHeader(): string {
+  if (!config.mealie.apiToken) {
+    throw new Error("MEALIE_API_TOKEN nicht gesetzt.");
+  }
+  return `Bearer ${config.mealie.apiToken}`;
+}
+
+/** Dauer-Kategorie zu ISO 8601 (PT20M etc.) */
+function durationToIso(duration: string): string {
+  switch (duration) {
+    case "kurz":
+      return "PT15M";
+    case "lang":
+      return "PT90M";
+    case "mittel":
+    default:
+      return "PT40M";
+  }
+}
+
+/**
+ * Erstellt ein Rezept in Mealie via schema.org/Recipe JSON.
+ * Mealie erwartet @context und @type für create/html-or-json.
+ */
+export async function createRecipe(
+  recipe: RecipeData,
+  sourceUrl: string,
+  transcript?: string
+): Promise<string> {
+  const baseUrl = getBaseUrl();
+  const auth = getAuthHeader();
+
+  const schemaOrg: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Recipe",
+    name: recipe.name,
+    recipeIngredient: recipe.ingredients,
+    recipeInstructions: recipe.steps,
+    prepTime: durationToIso(recipe.duration),
+    recipeYield: recipe.servings || undefined,
+    recipeCategory: recipe.tags.length > 0 ? recipe.tags : undefined,
+  };
+
+  if (recipe.imageUrl) {
+    schemaOrg.image = recipe.imageUrl;
+  }
+
+  let notes = `Quelle: ${sourceUrl}`;
+  if (transcript) {
+    notes += `\n\n--- Transkript ---\n${transcript}`;
+  }
+  schemaOrg.notes = notes;
+
+  // Extras für Mealie: Quelle, Kalorien
+  const extras: Record<string, string> = {
+    rezepti_source: sourceUrl,
+  };
+  if (recipe.calories) {
+    extras.rezepti_calories = String(recipe.calories);
+  }
+  schemaOrg.extras = extras;
+  schemaOrg.notes = notes;
+
+  const body = JSON.stringify({ data: JSON.stringify(schemaOrg) });
+
+  const res = await fetch(`${baseUrl}/api/recipes/create/html-or-json`, {
+    method: "POST",
+    headers: {
+      Authorization: auth,
+      "Content-Type": "application/json",
+    },
+    body,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Mealie API Fehler: ${res.status} ${errText}`);
+  }
+
+  const responseText = await res.text();
+
+  // Mealie gibt je nach Version einen String (Slug) oder ein Objekt zurück
+  let slug: string | undefined;
+  try {
+    const parsed = JSON.parse(responseText);
+    if (typeof parsed === "string") {
+      slug = parsed;
+    } else if (parsed && typeof parsed === "object") {
+      slug = parsed.slug ?? parsed.id;
+    }
+  } catch {
+    // Kein JSON — Antwort ist direkt der Slug als Text
+    slug = responseText.replace(/^"|"$/g, "").trim();
+  }
+
+  if (!slug) {
+    throw new Error(`Mealie: Keine Rezept-URL in Antwort erhalten. Response: ${responseText.slice(0, 200)}`);
+  }
+
+  return `${baseUrl}/g/home/r/${slug}`;
+}

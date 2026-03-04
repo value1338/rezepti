@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rezepti — Einrichtung</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Fraunces', 'Georgia', 'serif'],
+            body: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            cream: '#FFFBF5',
+            espresso: '#1A0F0A',
+            paprika: { DEFAULT: '#C84B31', light: '#E8674D', dark: '#A33A24' },
+            saffron: { DEFAULT: '#ECAD4B', light: '#F2C97A', dark: '#D49A2E' },
+            warmgray: '#8B7355',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .step { display: none; }
+    .step.active { display: block; }
+    .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #d1c7b7; transition: background 0.2s; }
+    .step-dot.active { background: #C84B31; }
+    .step-dot.done { background: #1A0F0A; }
+  </style>
+</head>
+<body class="bg-cream font-body text-espresso min-h-screen">
+  <div class="max-w-xl mx-auto px-4 py-16">
+    <h1 class="font-display text-3xl font-semibold text-espresso mb-2">Rezepti einrichten</h1>
+    <p class="text-warmgray mb-6">Schritt-für-Schritt Konfiguration. Daten werden in der .env gespeichert.</p>
+
+    <!-- Step indicator -->
+    <div class="flex items-center gap-2 mb-8">
+      <div class="step-dot active" data-step="0"></div>
+      <div class="h-px flex-1 bg-espresso/10"></div>
+      <div class="step-dot" data-step="1"></div>
+      <div class="h-px flex-1 bg-espresso/10"></div>
+      <div class="step-dot" data-step="2"></div>
+    </div>
+
+    <form id="setup-form">
+
+      <!-- Step 1: Export-Ziel -->
+      <div class="step active" data-step="0">
+        <h2 class="font-display text-xl font-semibold mb-1">Export-Ziel</h2>
+        <p class="text-warmgray text-sm mb-6">Wohin sollen deine Rezepte gespeichert werden?</p>
+
+        <div class="space-y-3 mb-6">
+          <label class="flex items-center gap-3 p-4 rounded-xl border border-espresso/10 cursor-pointer hover:border-paprika/30 transition-colors has-[:checked]:border-paprika has-[:checked]:bg-paprika/5">
+            <input type="radio" name="backend" value="notion" class="text-paprika" checked>
+            <div>
+              <span class="font-medium">Notion</span>
+              <p class="text-xs text-warmgray">Rezepte als strukturierte Seiten in einer Notion-Datenbank</p>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-4 rounded-xl border border-espresso/10 cursor-pointer hover:border-paprika/30 transition-colors has-[:checked]:border-paprika has-[:checked]:bg-paprika/5">
+            <input type="radio" name="backend" value="mealie" class="text-paprika">
+            <div>
+              <span class="font-medium">Mealie v1</span>
+              <p class="text-xs text-warmgray">Rezepte an einen selbstgehosteten Mealie-Server senden</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- Notion-Felder -->
+        <div id="notion-fields" class="space-y-4 p-4 rounded-xl bg-white/60 border border-espresso/[0.06] mb-6">
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">Notion Integration Token *</label>
+            <input type="password" name="notion_token" placeholder="secret_..." class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">Notion Database ID <span class="text-warmgray font-normal">(optional)</span></label>
+            <input type="text" name="notion_database_id" placeholder="Falls bereits vorhanden" class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">Notion Parent Page ID <span class="text-warmgray font-normal">(optional)</span></label>
+            <input type="text" name="notion_parent_page_id" placeholder="Seite, auf der die Datenbank erstellt wird" class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+        </div>
+
+        <!-- Mealie-Felder -->
+        <div id="mealie-fields" class="hidden space-y-4 p-4 rounded-xl bg-white/60 border border-espresso/[0.06] mb-6">
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">Mealie Server-URL *</label>
+            <input type="url" name="mealie_base_url" placeholder="http://192.168.1.168:3020" class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">Mealie API Token *</label>
+            <input type="password" name="mealie_api_token" placeholder="API-Token aus Mealie Profil" class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+        </div>
+
+        <button type="button" onclick="nextStep()" class="w-full px-6 py-3 rounded-xl bg-paprika text-white font-semibold hover:bg-paprika-dark transition-colors">
+          Weiter
+        </button>
+      </div>
+
+      <!-- Step 2: LLM-Backend -->
+      <div class="step" data-step="1">
+        <h2 class="font-display text-xl font-semibold mb-1">LLM-Backend</h2>
+        <p class="text-warmgray text-sm mb-6">Welches LLM-Backend soll Rezepti fuer Textextraktion und Bilderkennung nutzen?</p>
+
+        <div class="space-y-3 mb-6">
+          <label class="flex items-center gap-3 p-4 rounded-xl border border-espresso/10 cursor-pointer hover:border-paprika/30 transition-colors has-[:checked]:border-paprika has-[:checked]:bg-paprika/5">
+            <input type="radio" name="llm_provider" value="ollama" class="text-paprika" checked>
+            <div>
+              <span class="font-medium">Ollama</span>
+              <p class="text-xs text-warmgray">Separate Modelle fuer Text und Vision. Einfaches Setup.</p>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-4 rounded-xl border border-espresso/10 cursor-pointer hover:border-paprika/30 transition-colors has-[:checked]:border-paprika has-[:checked]:bg-paprika/5">
+            <input type="radio" name="llm_provider" value="llamacpp" class="text-paprika">
+            <div>
+              <span class="font-medium">llama.cpp</span>
+              <p class="text-xs text-warmgray">Ein Modell fuer Text + Vision (OpenAI-kompatible API)</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- Ollama-Felder -->
+        <div id="ollama-fields" class="space-y-4 p-4 rounded-xl bg-white/60 border border-espresso/[0.06] mb-6">
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">Ollama Server-URL</label>
+            <input type="url" name="ollama_base_url" value="http://localhost:11434" class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+          <p class="text-xs text-warmgray">Text-Modell: <span class="font-mono text-espresso">llama3.2:3b</span> &middot; Vision-Modell: <span class="font-mono text-espresso">llava:7b</span><br>Konfigurierbar ueber <span class="font-mono">OLLAMA_TEXT_MODEL</span> und <span class="font-mono">OLLAMA_VISION_MODEL</span> in der .env</p>
+        </div>
+
+        <!-- llama.cpp-Felder -->
+        <div id="llamacpp-fields" class="hidden space-y-4 p-4 rounded-xl bg-white/60 border border-espresso/[0.06] mb-6">
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">llama.cpp Server-URL *</label>
+            <input type="url" name="llamacpp_base_url" placeholder="http://192.168.1.168:8003" class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-1">Modell</label>
+            <input type="text" name="llamacpp_vision_model" value="Qwen3VL-8B-Instruct-Q8_0.gguf" class="w-full px-4 py-2 rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button type="button" onclick="prevStep()" class="px-6 py-3 rounded-xl border border-espresso/20 text-espresso font-medium hover:bg-espresso/5 transition-colors">
+            Zurueck
+          </button>
+          <button type="button" onclick="nextStep()" class="flex-1 px-6 py-3 rounded-xl bg-paprika text-white font-semibold hover:bg-paprika-dark transition-colors">
+            Weiter
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: Zusammenfassung -->
+      <div class="step" data-step="2">
+        <h2 class="font-display text-xl font-semibold mb-1">Zusammenfassung</h2>
+        <p class="text-warmgray text-sm mb-6">Pruefe deine Einstellungen und speichere.</p>
+
+        <div class="space-y-3 p-4 rounded-xl bg-white/60 border border-espresso/[0.06] mb-6">
+          <div class="flex justify-between text-sm">
+            <span class="text-warmgray">Export-Ziel</span>
+            <span id="summary-backend" class="font-medium">—</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-warmgray">LLM-Backend</span>
+            <span id="summary-llm" class="font-medium">—</span>
+          </div>
+          <div id="summary-details" class="text-xs text-warmgray border-t border-espresso/5 pt-3 mt-3 space-y-1"></div>
+        </div>
+
+        <div id="message" class="hidden p-4 rounded-xl mb-4"></div>
+
+        <div class="flex gap-3">
+          <button type="button" onclick="prevStep()" class="px-6 py-3 rounded-xl border border-espresso/20 text-espresso font-medium hover:bg-espresso/5 transition-colors">
+            Zurueck
+          </button>
+          <button type="submit" class="flex-1 px-6 py-3 rounded-xl bg-paprika text-white font-semibold hover:bg-paprika-dark transition-colors">
+            Speichern & Starten
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById('setup-form');
+    let currentStep = 0;
+
+    function updateStepDots() {
+      document.querySelectorAll('.step-dot').forEach(dot => {
+        const s = parseInt(dot.dataset.step);
+        dot.classList.toggle('active', s === currentStep);
+        dot.classList.toggle('done', s < currentStep);
+      });
+    }
+
+    function showStep(n) {
+      document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+      document.querySelector(`.step[data-step="${n}"]`).classList.add('active');
+      currentStep = n;
+      updateStepDots();
+      if (n === 2) updateSummary();
+    }
+
+    function nextStep() { if (currentStep < 2) showStep(currentStep + 1); }
+    function prevStep() { if (currentStep > 0) showStep(currentStep - 1); }
+
+    // Toggle backend fields
+    function toggleBackend() {
+      const backend = form.querySelector('input[name="backend"]:checked')?.value || 'notion';
+      document.getElementById('notion-fields').classList.toggle('hidden', backend !== 'notion');
+      document.getElementById('mealie-fields').classList.toggle('hidden', backend !== 'mealie');
+    }
+    form.querySelectorAll('input[name="backend"]').forEach(r => r.addEventListener('change', toggleBackend));
+
+    // Toggle LLM fields
+    function toggleLlm() {
+      const llm = form.querySelector('input[name="llm_provider"]:checked')?.value || 'ollama';
+      document.getElementById('ollama-fields').classList.toggle('hidden', llm !== 'ollama');
+      document.getElementById('llamacpp-fields').classList.toggle('hidden', llm !== 'llamacpp');
+    }
+    form.querySelectorAll('input[name="llm_provider"]').forEach(r => r.addEventListener('change', toggleLlm));
+
+    function updateSummary() {
+      const backend = form.querySelector('input[name="backend"]:checked')?.value || 'notion';
+      const llm = form.querySelector('input[name="llm_provider"]:checked')?.value || 'ollama';
+
+      document.getElementById('summary-backend').textContent = backend === 'notion' ? 'Notion' : 'Mealie v1';
+      document.getElementById('summary-llm').textContent = llm === 'ollama' ? 'Ollama' : 'llama.cpp';
+
+      const details = document.getElementById('summary-details');
+      const lines = [];
+      if (backend === 'notion') {
+        const token = form.querySelector('[name="notion_token"]').value.trim();
+        lines.push(`Notion Token: ${token ? '***' + token.slice(-4) : 'nicht gesetzt'}`);
+      } else {
+        lines.push(`Mealie URL: ${form.querySelector('[name="mealie_base_url"]').value.trim() || 'nicht gesetzt'}`);
+      }
+      if (llm === 'ollama') {
+        lines.push(`Ollama URL: ${form.querySelector('[name="ollama_base_url"]').value.trim()}`);
+      } else {
+        lines.push(`llama.cpp URL: ${form.querySelector('[name="llamacpp_base_url"]').value.trim() || 'nicht gesetzt'}`);
+        lines.push(`Modell: ${form.querySelector('[name="llamacpp_vision_model"]').value.trim()}`);
+      }
+      details.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
+    }
+
+    // Load existing config
+    fetch('/api/setup/status')
+      .then(r => r.json())
+      .then(data => {
+        // Backend
+        const backend = data.backend || 'notion';
+        const backendRadio = form.querySelector(`input[name="backend"][value="${backend}"]`);
+        if (backendRadio) backendRadio.checked = true;
+        toggleBackend();
+
+        // Notion
+        form.querySelector('[name="notion_token"]').placeholder = data.notion?.hasToken ? '•••••• (bereits gesetzt)' : 'secret_...';
+        if (data.notion?.databaseId) form.querySelector('[name="notion_database_id"]').value = data.notion.databaseId;
+        if (data.notion?.parentPageId) form.querySelector('[name="notion_parent_page_id"]').value = data.notion.parentPageId;
+
+        // Mealie
+        if (data.mealie?.baseUrl) form.querySelector('[name="mealie_base_url"]').value = data.mealie.baseUrl;
+        form.querySelector('[name="mealie_api_token"]').placeholder = data.mealie?.hasToken ? '•••••• (bereits gesetzt)' : 'API-Token';
+
+        // LLM
+        const llm = data.llmProvider || 'ollama';
+        const llmRadio = form.querySelector(`input[name="llm_provider"][value="${llm}"]`);
+        if (llmRadio) llmRadio.checked = true;
+        if (data.ollama?.baseUrl) form.querySelector('[name="ollama_base_url"]').value = data.ollama.baseUrl;
+        if (data.llamaCpp?.baseUrl) form.querySelector('[name="llamacpp_base_url"]').value = data.llamaCpp.baseUrl;
+        if (data.llamaCpp?.model) form.querySelector('[name="llamacpp_vision_model"]').value = data.llamaCpp.model;
+        toggleLlm();
+      })
+      .catch(() => {});
+
+    // Submit
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msgEl = document.getElementById('message');
+
+      const backend = form.querySelector('input[name="backend"]:checked')?.value || 'notion';
+      const llm = form.querySelector('input[name="llm_provider"]:checked')?.value || 'ollama';
+      const notionToken = form.querySelector('[name="notion_token"]').value.trim();
+      const mealieToken = form.querySelector('[name="mealie_api_token"]').value.trim();
+
+      const payload = {
+        EXPORT_BACKEND: backend,
+        LLM_PROVIDER: llm,
+        NOTION_DATABASE_ID: form.querySelector('[name="notion_database_id"]').value.trim(),
+        NOTION_PARENT_PAGE_ID: form.querySelector('[name="notion_parent_page_id"]').value.trim(),
+        MEALIE_BASE_URL: form.querySelector('[name="mealie_base_url"]').value.trim(),
+        LLAMACPP_BASE_URL: form.querySelector('[name="llamacpp_base_url"]').value.trim(),
+        LLAMACPP_VISION_MODEL: form.querySelector('[name="llamacpp_vision_model"]').value.trim(),
+      };
+      if (notionToken && !notionToken.startsWith('••')) payload.NOTION_TOKEN = notionToken;
+      if (mealieToken && !mealieToken.startsWith('••')) payload.MEALIE_API_TOKEN = mealieToken;
+
+      try {
+        const res = await fetch('/api/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msgEl.textContent = 'Einstellungen gespeichert! Weiterleitung...';
+          msgEl.className = 'p-4 rounded-xl bg-green-50 text-green-800 mb-4';
+          msgEl.classList.remove('hidden');
+          setTimeout(() => window.location.href = '/', 1500);
+        } else {
+          msgEl.textContent = data.error || 'Fehler beim Speichern';
+          msgEl.className = 'p-4 rounded-xl bg-red-50 text-red-700 mb-4';
+          msgEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        msgEl.textContent = 'Netzwerkfehler: ' + err.message;
+        msgEl.className = 'p-4 rounded-xl bg-red-50 text-red-700 mb-4';
+        msgEl.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rezepti — Rezepte aus dem Netz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Fraunces', 'Georgia', 'serif'],
+            body: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            cream: '#FFFBF5',
+            espresso: '#1A0F0A',
+            paprika: { DEFAULT: '#C84B31', light: '#E8674D', dark: '#A33A24' },
+            saffron: { DEFAULT: '#ECAD4B', light: '#F2C97A', dark: '#D49A2E' },
+            warmgray: '#8B7355',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Noise texture overlay */
+    .grain::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.3;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 256px 256px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Entrance animations */
+    @keyframes hero-rise {
+      from { opacity: 0; transform: translateY(28px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes hero-fade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes float-gentle {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(1.5deg); }
+    }
+    @keyframes float-offset {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-6px) rotate(-1deg); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes input-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(200, 75, 49, 0); }
+      50% { box-shadow: 0 0 24px -4px rgba(200, 75, 49, 0.15); }
+    }
+
+    .hero-rise {
+      animation: hero-rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .hero-fade {
+      animation: hero-fade 1s ease both;
+    }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.25s; }
+    .delay-3 { animation-delay: 0.4s; }
+    .delay-4 { animation-delay: 0.55s; }
+    .delay-5 { animation-delay: 0.7s; }
+    .delay-6 { animation-delay: 0.85s; }
+
+    .float-gentle { animation: float-gentle 6s ease-in-out infinite; }
+    .float-offset { animation: float-offset 7s ease-in-out infinite 1s; }
+
+    .input-glow { animation: input-glow 3s ease-in-out infinite; }
+
+    /* Decorative spice dots */
+    .spice-dot {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D4C4B0; border-radius: 3px; }
+
+    /* Platform icon hover */
+    .platform-icon {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .platform-icon:hover {
+      transform: translateY(-3px) scale(1.08);
+    }
+
+    /* Progress dots */
+    @keyframes pulse-dot {
+      0%, 80%, 100% { opacity: 0.3; }
+      40% { opacity: 1; }
+    }
+    .loading-dot { animation: pulse-dot 1.4s infinite; }
+    .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Arrow shimmer */
+    .arrow-shimmer {
+      background: linear-gradient(90deg, #8B7355 0%, #ECAD4B 50%, #8B7355 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 3s linear infinite;
+    }
+
+    /* Submit button */
+    .btn-extract {
+      background: linear-gradient(135deg, #C84B31 0%, #A33A24 100%);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 8px -2px rgba(200, 75, 49, 0.4);
+    }
+    .btn-extract:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px -2px rgba(200, 75, 49, 0.5);
+    }
+    .btn-extract:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    /* Notion button */
+    .btn-notion {
+      background: linear-gradient(135deg, #1A0F0A 0%, #2D1E14 100%);
+      transition: all 0.3s ease;
+    }
+    .btn-notion:hover {
+      box-shadow: 0 4px 12px -2px rgba(26, 15, 10, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-cream font-body text-espresso min-h-screen">
+
+  <!-- ═══════════════════════ HERO SECTION ═══════════════════════ -->
+  <section class="relative grain min-h-[92vh] flex flex-col items-center justify-center overflow-hidden px-4">
+
+    <!-- Decorative background elements -->
+    <div class="spice-dot w-[340px] h-[340px] bg-saffron/[0.07] -top-20 -right-20 blur-3xl" style="position:absolute"></div>
+    <div class="spice-dot w-[280px] h-[280px] bg-paprika/[0.06] -bottom-16 -left-16 blur-3xl" style="position:absolute"></div>
+    <div class="spice-dot w-[180px] h-[180px] bg-saffron/[0.08] top-1/3 left-[8%] blur-2xl float-gentle" style="position:absolute"></div>
+    <div class="spice-dot w-[140px] h-[140px] bg-paprika/[0.05] top-[20%] right-[12%] blur-2xl float-offset" style="position:absolute"></div>
+
+    <!-- Small decorative scattered dots (like scattered spice) -->
+    <svg class="absolute inset-0 w-full h-full pointer-events-none hero-fade delay-6" aria-hidden="true">
+      <circle cx="10%" cy="25%" r="2" fill="#C84B31" opacity="0.15"/>
+      <circle cx="85%" cy="18%" r="1.5" fill="#ECAD4B" opacity="0.2"/>
+      <circle cx="92%" cy="55%" r="2.5" fill="#C84B31" opacity="0.1"/>
+      <circle cx="7%" cy="70%" r="1.8" fill="#ECAD4B" opacity="0.18"/>
+      <circle cx="78%" cy="80%" r="2" fill="#C84B31" opacity="0.12"/>
+      <circle cx="20%" cy="88%" r="1.5" fill="#ECAD4B" opacity="0.15"/>
+      <circle cx="55%" cy="10%" r="2" fill="#C84B31" opacity="0.08"/>
+      <circle cx="35%" cy="92%" r="1.8" fill="#ECAD4B" opacity="0.12"/>
+    </svg>
+
+    <div class="relative z-10 w-full max-w-2xl mx-auto text-center">
+
+      <!-- Wordmark -->
+      <div class="hero-rise delay-1 mb-6">
+        <span class="inline-block font-display text-sm tracking-[0.35em] uppercase text-warmgray/80 font-medium">
+          Rezept-Extraktor
+        </span>
+      </div>
+
+      <!-- Main title -->
+      <h1 class="hero-rise delay-2 font-display text-[clamp(2.8rem,7vw,5.2rem)] font-semibold leading-[1.05] tracking-tight mb-6 text-espresso">
+        Jedes Rezept.<br>
+        <span class="italic text-paprika">Ein Link entfernt.</span>
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="hero-rise delay-3 text-warmgray text-lg md:text-xl max-w-lg mx-auto mb-10 leading-relaxed font-body">
+        Füge eine URL ein — von YouTube, Instagram, TikTok oder jeder Webseite —
+        und Rezepti extrahiert das Rezept in dein Rezept-Archiv.
+      </p>
+
+      <!-- Tab Toggle -->
+      <div class="hero-rise delay-4 flex justify-center mb-5">
+        <div class="inline-flex rounded-2xl bg-espresso/[0.05] p-1 gap-1">
+          <button id="tab-url" onclick="switchTab('url')" class="px-5 py-2 rounded-xl text-sm font-semibold font-body transition-all duration-200 bg-white text-espresso shadow-sm">
+            🔗 URL
+          </button>
+          <button id="tab-photo" onclick="switchTab('photo')" class="px-5 py-2 rounded-xl text-sm font-semibold font-body transition-all duration-200 text-warmgray hover:text-espresso">
+            📷 Foto
+          </button>
+        </div>
+      </div>
+
+      <!-- URL Input -->
+      <form id="form-url" class="hero-rise delay-4 mb-8">
+        <div class="relative flex items-center gap-3 max-w-xl mx-auto">
+          <!-- URL icon -->
+          <div class="absolute left-4 text-warmgray/50 pointer-events-none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </div>
+          <input
+            id="url-input"
+            type="url"
+            placeholder="https://..."
+            required
+            class="flex-1 pl-12 pr-4 py-4 rounded-2xl border-2 border-espresso/[0.08] bg-white/80 backdrop-blur-sm text-espresso placeholder-warmgray/40 focus:outline-none focus:border-paprika/40 focus:bg-white text-lg font-body input-glow transition-all duration-300"
+          >
+          <button
+            type="submit"
+            id="submit-btn"
+            class="btn-extract px-7 py-4 rounded-2xl text-white font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none whitespace-nowrap"
+          >
+            Extrahieren
+          </button>
+        </div>
+      </form>
+
+      <!-- Foto Upload -->
+      <div id="form-photo" class="hero-rise delay-4 mb-8 hidden max-w-xl mx-auto">
+        <div id="photo-ollama-warning" class="hidden mb-4 p-3 rounded-xl bg-saffron/20 border border-saffron/40 text-sm text-espresso">
+          ⚠️ Foto-Erkennung benötigt <strong>llama.cpp</strong> als LLM-Backend mit einem Vision-Modell (z.B. Qwen3VL-8B). Mit Ollama kann die Qualität stark variieren.
+          <a href="#" onclick="openSettings(); return false;" class="underline text-paprika ml-1">Einstellungen öffnen →</a>
+        </div>
+        <label
+          id="drop-zone"
+          for="photo-input"
+          class="flex flex-col items-center justify-center gap-3 w-full h-40 rounded-2xl border-2 border-dashed border-espresso/[0.15] bg-white/60 backdrop-blur-sm cursor-pointer hover:border-paprika/40 hover:bg-white/80 transition-all duration-300"
+        >
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C84B31" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+            <circle cx="12" cy="13" r="3"/>
+          </svg>
+          <span id="drop-label" class="text-warmgray text-sm font-body">Foto hierhin ziehen oder <span class="text-paprika font-semibold">auswählen</span></span>
+          <span class="text-warmgray/40 text-xs">JPG, PNG, WEBP</span>
+          <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden">
+        </label>
+        <div id="photo-preview-wrap" class="hidden mt-3 flex items-center gap-3 bg-white/80 rounded-xl px-4 py-3 border border-espresso/[0.06]">
+          <img id="photo-preview" src="" alt="Vorschau" class="w-14 h-14 rounded-lg object-cover flex-shrink-0">
+          <div class="flex-1 min-w-0">
+            <p id="photo-name" class="text-sm font-semibold text-espresso truncate"></p>
+            <p id="photo-size" class="text-xs text-warmgray"></p>
+          </div>
+          <button type="button" onclick="clearPhoto()" class="text-warmgray/50 hover:text-paprika transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <button
+          id="photo-submit-btn"
+          onclick="submitPhoto()"
+          class="btn-extract mt-4 w-full px-7 py-4 rounded-2xl text-white font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+          disabled
+        >
+          Rezept erkennen
+        </button>
+      </div>
+
+      <!-- Platform badges -->
+      <div class="hero-rise delay-5 flex items-center justify-center gap-3 flex-wrap">
+        <span class="text-warmgray/50 text-sm mr-1">Unterstützt</span>
+
+        <!-- YouTube -->
+        <div class="platform-icon flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/60 backdrop-blur-sm border border-espresso/[0.06] cursor-default">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#C84B31">
+            <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.5 31.5 0 0 0 0 12a31.5 31.5 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1c.4-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z"/>
+          </svg>
+          <span class="text-xs font-medium text-espresso/70">YouTube</span>
+        </div>
+
+        <!-- Instagram -->
+        <div class="platform-icon flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/60 backdrop-blur-sm border border-espresso/[0.06] cursor-default">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C84B31" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="5"/>
+            <circle cx="12" cy="12" r="5"/>
+            <circle cx="17.5" cy="6.5" r="1.5" fill="#C84B31" stroke="none"/>
+          </svg>
+          <span class="text-xs font-medium text-espresso/70">Instagram</span>
+        </div>
+
+        <!-- TikTok -->
+        <div class="platform-icon flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/60 backdrop-blur-sm border border-espresso/[0.06] cursor-default">
+          <svg width="14" height="16" viewBox="0 0 14 16" fill="#C84B31">
+            <path d="M10.3 0C10.5 1.7 11.5 3 13.2 3.3v2.3c-1.1.1-2.2-.3-3-1v4.6c0 5.1-5.5 6.7-7.7 3-1.4-2.3-.5-6.4 3.5-6.6v2.4c-.3 0-.6.1-.9.2-1 .3-1.5 1-1.4 2 .2 1.6 2.8 2.1 2.6-.6V0h2.9z"/>
+          </svg>
+          <span class="text-xs font-medium text-espresso/70">TikTok</span>
+        </div>
+
+        <!-- Web -->
+        <div class="platform-icon flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/60 backdrop-blur-sm border border-espresso/[0.06] cursor-default">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C84B31" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          <span class="text-xs font-medium text-espresso/70">Web</span>
+        </div>
+
+        <!-- Arrow to Export -->
+        <span class="arrow-shimmer text-lg mx-1 font-display">&rarr;</span>
+
+        <!-- Export-Ziel (wird per API gesetzt) -->
+        <div id="export-badge" class="platform-icon flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-espresso/[0.05] backdrop-blur-sm border border-espresso/[0.1] cursor-default">
+          <svg width="15" height="15" viewBox="0 0 100 100" fill="none">
+            <path d="M6.017 4.313l55.333-4.087c6.797-.583 8.543-.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277-1.553 6.807-6.99 7.193L24.467 99.967c-4.08.193-6.023-.39-8.16-3.113L3.3 79.94c-2.333-3.113-3.3-5.443-3.3-8.167V11.113c0-3.497 1.553-6.413 6.017-6.8z" fill="#1A0F0A"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M61.35.227L6.017 4.313C1.553 4.7 0 7.617 0 11.113v60.66c0 2.723.967 5.053 3.3 8.167l12.907 16.913c2.137 2.723 4.08 3.307 8.16 3.113L88.723 96.08c5.437-.387 6.99-2.917 6.99-7.193V20.64c0-2.21-.9-2.847-3.447-4.727l-.436-.327-17.663-12.443C69.893.037 68.147-.357 61.35.227zM25.663 19.18c-5.58.343-6.853.418-10.037-2.197L7.84 10.34c-.78-.78-.39-1.753 1.163-1.94l53.583-3.893c4.667-.39 7.003 1.167 8.753 2.527l9.303 6.613c.39.193 1.36 1.36.193 1.36l-55.57 3.587-.603.587zm-3.42 74.697V29.507c0-2.527.78-3.697 3.103-3.893l60.857-3.5c2.14-.193 3.107 1.167 3.107 3.693v63.98c0 2.53-.39 4.667-3.887 4.86l-58.327 3.31c-3.497.193-4.853-.973-4.853-3.78zm57.547-61.453c.39 1.75 0 3.5-1.75 3.7l-2.917.58v47.243c-2.527 1.36-4.853 2.137-6.797 2.137-3.107 0-3.883-.973-6.22-3.887l-19.03-29.94v28.967l6.027 1.363s0 3.5-4.857 3.5l-13.39.78c-.39-.78 0-2.723 1.357-3.11l3.497-.97V37.34l-4.857-.39c-.39-1.75.583-4.277 3.3-4.473l14.367-.967 19.8 30.327V34.62l-5.053-.583c-.39-2.143 1.163-3.7 3.103-3.893l14.42-.94z" fill="#FFFBF5"/>
+          </svg>
+          <span id="export-badge-label" class="text-xs font-semibold text-espresso/80">Notion</span>
+        </div>
+      </div>
+
+      <!-- Setup-Link (öffnet Modal) -->
+      <div class="hero-fade delay-6 mt-6">
+        <button onclick="openSettings()" class="text-warmgray/50 hover:text-warmgray text-xs cursor-pointer bg-transparent border-none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline -mt-0.5 mr-0.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Einstellungen
+        </button>
+      </div>
+
+      <!-- How it works hint -->
+      <div class="hero-fade delay-6 mt-16 flex items-center justify-center gap-8 text-warmgray/50 text-xs tracking-wide uppercase">
+        <span class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-paprika/10 flex items-center justify-center text-paprika text-[10px] font-bold font-display">1</span>
+          Link einfügen
+        </span>
+        <span class="text-warmgray/20">/</span>
+        <span class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-paprika/10 flex items-center justify-center text-paprika text-[10px] font-bold font-display">2</span>
+          KI extrahiert
+        </span>
+        <span class="text-warmgray/20">/</span>
+        <span class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-paprika/10 flex items-center justify-center text-paprika text-[10px] font-bold font-display">3</span>
+          <span id="step3-label">In Notion speichern</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Scroll indicator -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 hero-fade delay-6">
+      <div class="w-5 h-8 rounded-full border-2 border-warmgray/20 flex justify-center pt-1.5">
+        <div class="w-1 h-2 rounded-full bg-warmgray/30 animate-bounce"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ RESULTS SECTION ═══════════════════════ -->
+  <section class="relative max-w-2xl mx-auto px-4 py-12">
+
+    <!-- Progress -->
+    <div id="progress" class="hidden mb-8">
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl border border-espresso/[0.06] p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="flex gap-1">
+            <span class="loading-dot w-2 h-2 bg-paprika rounded-full inline-block"></span>
+            <span class="loading-dot w-2 h-2 bg-paprika rounded-full inline-block"></span>
+            <span class="loading-dot w-2 h-2 bg-paprika rounded-full inline-block"></span>
+          </div>
+          <span id="progress-text" class="text-warmgray font-medium">Starte...</span>
+        </div>
+        <div id="progress-log" class="space-y-1 text-sm text-warmgray/70 max-h-40 overflow-y-auto font-body"></div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="hidden mb-8">
+      <div class="bg-red-50/80 backdrop-blur-sm rounded-2xl border border-red-200/60 p-6">
+        <h3 class="text-red-800 font-semibold mb-1 font-display">Fehler</h3>
+        <p id="error-text" class="text-red-600 font-body"></p>
+      </div>
+    </div>
+
+    <!-- Recipe Result -->
+    <div id="result" class="hidden">
+      <div class="bg-white/90 backdrop-blur-sm rounded-2xl border border-espresso/[0.06] overflow-hidden shadow-sm">
+        <!-- Cover image -->
+        <div id="recipe-cover" class="h-56 bg-espresso/5 bg-cover bg-center hidden"></div>
+
+        <div class="p-8">
+          <!-- Title -->
+          <div class="flex items-center gap-4 mb-5">
+            <span id="recipe-emoji" class="text-4xl"></span>
+            <h2 id="recipe-name" class="text-2xl font-display font-semibold text-espresso"></h2>
+          </div>
+
+          <!-- Meta -->
+          <div id="recipe-meta" class="flex flex-wrap gap-2 mb-8"></div>
+
+          <!-- Zutaten -->
+          <h3 class="text-lg font-display font-semibold text-espresso/80 mb-3">Zutaten</h3>
+          <ul id="recipe-ingredients" class="list-none space-y-2 text-espresso/70 mb-8 font-body"></ul>
+
+          <!-- Zubereitung -->
+          <h3 class="text-lg font-display font-semibold text-espresso/80 mb-3">Zubereitung</h3>
+          <ol id="recipe-steps" class="list-none space-y-3 text-espresso/70 mb-8 font-body counter-reset-steps"></ol>
+
+          <!-- Notion link -->
+          <div id="notion-link" class="hidden pt-6 border-t border-espresso/[0.06]">
+            <a
+              id="notion-url"
+              href="#"
+              target="_blank"
+              class="btn-notion inline-flex items-center gap-2 px-5 py-3 rounded-xl text-white font-semibold font-body"
+            >
+              <svg width="16" height="16" viewBox="0 0 100 100" fill="none">
+                <path d="M6.017 4.313l55.333-4.087c6.797-.583 8.543-.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277-1.553 6.807-6.99 7.193L24.467 99.967c-4.08.193-6.023-.39-8.16-3.113L3.3 79.94c-2.333-3.113-3.3-5.443-3.3-8.167V11.113c0-3.497 1.553-6.413 6.017-6.8z" fill="white"/>
+              </svg>
+              <span id="export-link-label">In Notion ansehen</span> &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Export-Backend für UI laden
+    fetch('/api/setup/status').then(r => r.json()).then(d => {
+      const label = d.backend === 'mealie' ? 'Mealie' : 'Notion';
+      const el = document.getElementById('export-badge-label');
+      const step3 = document.getElementById('step3-label');
+      if (el) el.textContent = label;
+      if (step3) step3.textContent = d.backend === 'mealie' ? 'In Mealie speichern' : 'In Notion speichern';
+      const linkLabel = document.getElementById('export-link-label');
+      if (linkLabel) linkLabel.textContent = d.backend === 'mealie' ? 'In Mealie ansehen' : 'In Notion ansehen';
+    }).catch(() => {});
+
+    const form = document.getElementById('form-url');
+    const urlInput = document.getElementById('url-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const progress = document.getElementById('progress');
+    const progressText = document.getElementById('progress-text');
+    const progressLog = document.getElementById('progress-log');
+    const error = document.getElementById('error');
+    const errorText = document.getElementById('error-text');
+    const result = document.getElementById('result');
+
+    // Check LLM provider on load — show warning on photo tab if Ollama
+    fetch('/api/setup/status').then(r => r.json()).then(data => {
+      if (data.llmProvider !== 'llamacpp') {
+        document.getElementById('photo-ollama-warning').classList.remove('hidden');
+        const tabPhotoBtn = document.getElementById('tab-photo');
+        tabPhotoBtn.title = 'Empfohlen: llama.cpp als LLM-Backend verwenden';
+        tabPhotoBtn.innerHTML = '📷 Foto <span class="text-saffron text-xs">⚠</span>';
+      }
+    }).catch(() => {});
+
+    // Tab switching
+    function switchTab(tab) {
+      const isUrl = tab === 'url';
+      document.getElementById('form-url').classList.toggle('hidden', !isUrl);
+      document.getElementById('form-photo').classList.toggle('hidden', isUrl);
+      document.getElementById('tab-url').className = isUrl
+        ? 'px-5 py-2 rounded-xl text-sm font-semibold font-body transition-all duration-200 bg-white text-espresso shadow-sm'
+        : 'px-5 py-2 rounded-xl text-sm font-semibold font-body transition-all duration-200 text-warmgray hover:text-espresso';
+      document.getElementById('tab-photo').className = !isUrl
+        ? 'px-5 py-2 rounded-xl text-sm font-semibold font-body transition-all duration-200 bg-white text-espresso shadow-sm'
+        : 'px-5 py-2 rounded-xl text-sm font-semibold font-body transition-all duration-200 text-warmgray hover:text-espresso';
+    }
+
+    // Photo input handling
+    let selectedFile = null;
+
+    const photoInput = document.getElementById('photo-input');
+    const dropZone = document.getElementById('drop-zone');
+
+    photoInput.addEventListener('change', () => {
+      if (photoInput.files[0]) setPhoto(photoInput.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-paprika/40'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-paprika/40'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-paprika/40');
+      if (e.dataTransfer.files[0]) setPhoto(e.dataTransfer.files[0]);
+    });
+
+    function setPhoto(file) {
+      selectedFile = file;
+      document.getElementById('photo-name').textContent = file.name;
+      document.getElementById('photo-size').textContent = (file.size / 1024).toFixed(0) + ' KB';
+      const reader = new FileReader();
+      reader.onload = (e) => { document.getElementById('photo-preview').src = e.target.result; };
+      reader.readAsDataURL(file);
+      document.getElementById('photo-preview-wrap').classList.remove('hidden');
+      document.getElementById('photo-preview-wrap').style.display = 'flex';
+      document.getElementById('drop-label').textContent = 'Anderes Foto wählen';
+      document.getElementById('photo-submit-btn').disabled = false;
+    }
+
+    function clearPhoto() {
+      selectedFile = null;
+      photoInput.value = '';
+      document.getElementById('photo-preview-wrap').classList.add('hidden');
+      document.getElementById('drop-label').innerHTML = 'Foto hierhin ziehen oder <span class="text-paprika font-semibold">auswählen</span>';
+      document.getElementById('photo-submit-btn').disabled = true;
+    }
+
+    async function submitPhoto() {
+      if (!selectedFile) return;
+
+      const btn = document.getElementById('photo-submit-btn');
+      btn.disabled = true;
+      progress.classList.remove('hidden');
+      error.classList.add('hidden');
+      result.classList.add('hidden');
+      progressLog.innerHTML = '';
+      progress.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      try {
+        const response = await fetch('/api/extract-image', { method: 'POST', body: formData });
+        if (!response.ok) {
+          const json = await response.json().catch(() => ({}));
+          throw new Error(json.error || `HTTP ${response.status}`);
+        }
+        await consumeSSEStream(response, btn);
+      } catch (err) {
+        showError(err.message || 'Unbekannter Fehler');
+        btn.disabled = false;
+        progress.classList.add('hidden');
+      }
+    }
+
+    // Reads a fetch Response as SSE stream (for POST endpoints)
+    async function consumeSSEStream(response, enableBtn) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let eventType = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete last line
+
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            eventType = line.slice(6).trim();
+          } else if (line.startsWith('data:')) {
+            const dataStr = line.slice(5).trim();
+            try {
+              const event = JSON.parse(dataStr);
+              if (eventType === 'done') {
+                handleEvent(event);
+                showResult(event.data);
+                if (enableBtn) enableBtn.disabled = false;
+                progress.classList.add('hidden');
+              } else if (eventType === 'error') {
+                showError(event.message);
+                if (enableBtn) enableBtn.disabled = false;
+                progress.classList.add('hidden');
+              } else {
+                handleEvent(event);
+              }
+            } catch (_) {}
+            eventType = '';
+          }
+        }
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = urlInput.value.trim();
+      if (!url) return;
+
+      // Reset UI
+      progress.classList.remove('hidden');
+      error.classList.add('hidden');
+      result.classList.add('hidden');
+      progressLog.innerHTML = '';
+      submitBtn.disabled = true;
+
+      // Scroll to progress
+      progress.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      try {
+        const evtSource = new EventSource(`/api/extract?url=${encodeURIComponent(url)}`);
+
+        evtSource.addEventListener('classifying', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('fetching', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('transcribing', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('analyzing_image', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('extracting', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('exporting', (e) => handleEvent(JSON.parse(e.data)));
+
+        evtSource.addEventListener('done', (e) => {
+          evtSource.close();
+          const event = JSON.parse(e.data);
+          handleEvent(event);
+          showResult(event.data);
+          submitBtn.disabled = false;
+          progress.classList.add('hidden');
+        });
+
+        evtSource.addEventListener('error', (e) => {
+          if (e.data) {
+            const event = JSON.parse(e.data);
+            showError(event.message);
+          } else {
+            showError('Verbindung zum Server verloren.');
+          }
+          evtSource.close();
+          submitBtn.disabled = false;
+          progress.classList.add('hidden');
+        });
+
+        evtSource.onerror = () => {
+          evtSource.close();
+          submitBtn.disabled = false;
+          progress.classList.add('hidden');
+        };
+      } catch (err) {
+        showError(err.message || 'Unbekannter Fehler');
+        submitBtn.disabled = false;
+        progress.classList.add('hidden');
+      }
+    });
+
+    function handleEvent(event) {
+      progressText.textContent = event.message;
+      const logEntry = document.createElement('div');
+      logEntry.textContent = `${stageLabel(event.stage)}: ${event.message}`;
+      progressLog.appendChild(logEntry);
+      progressLog.scrollTop = progressLog.scrollHeight;
+    }
+
+    function stageLabel(stage) {
+      const labels = {
+        classifying: 'Analyse',
+        fetching: 'Abrufen',
+        transcribing: 'Transkription',
+        analyzing_image: 'Bildanalyse',
+        extracting: 'Extraktion',
+        exporting: 'Export',
+        done: 'Fertig',
+        error: 'Fehler',
+      };
+      return labels[stage] || stage;
+    }
+
+    function showError(msg) {
+      error.classList.remove('hidden');
+      errorText.textContent = msg;
+    }
+
+    function showResult(data) {
+      if (!data || !data.recipe) return;
+      const recipe = data.recipe;
+
+      result.classList.remove('hidden');
+      result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Cover
+      const cover = document.getElementById('recipe-cover');
+      if (recipe.imageUrl) {
+        cover.style.backgroundImage = `url(${recipe.imageUrl})`;
+        cover.classList.remove('hidden');
+      } else {
+        cover.classList.add('hidden');
+      }
+
+      // Title
+      document.getElementById('recipe-emoji').textContent = recipe.emoji || '🍽️';
+      document.getElementById('recipe-name').textContent = recipe.name;
+
+      // Meta tags
+      const meta = document.getElementById('recipe-meta');
+      meta.innerHTML = '';
+      const addTag = (text, bgClass) => {
+        const tag = document.createElement('span');
+        tag.className = `px-3 py-1 rounded-full text-sm font-medium font-body ${bgClass}`;
+        tag.textContent = text;
+        meta.appendChild(tag);
+      };
+      addTag(recipe.duration, 'bg-saffron/20 text-saffron-dark');
+      if (recipe.calories) addTag(`${recipe.calories} kcal`, 'bg-green-100/80 text-green-800');
+      if (recipe.servings) addTag(`${recipe.servings} Portionen`, 'bg-paprika/10 text-paprika-dark');
+      recipe.tags.forEach(t => addTag(t, 'bg-espresso/5 text-warmgray'));
+
+      // Ingredients
+      const ingList = document.getElementById('recipe-ingredients');
+      ingList.innerHTML = '';
+      recipe.ingredients.forEach(ing => {
+        const li = document.createElement('li');
+        li.className = 'flex items-baseline gap-2';
+        li.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-paprika/40 flex-shrink-0 mt-2"></span><span>${ing}</span>`;
+        ingList.appendChild(li);
+      });
+
+      // Steps
+      const stepList = document.getElementById('recipe-steps');
+      stepList.innerHTML = '';
+      recipe.steps.forEach((step, i) => {
+        const li = document.createElement('li');
+        li.className = 'flex gap-3';
+        li.innerHTML = `<span class="w-6 h-6 rounded-full bg-paprika/10 flex items-center justify-center flex-shrink-0 mt-0.5 text-paprika text-xs font-bold font-display">${i + 1}</span><span>${step}</span>`;
+        stepList.appendChild(li);
+      });
+
+      // Export-Link (Notion oder Mealie)
+      const notionLink = document.getElementById('notion-link');
+      const exportUrl = data.exportUrl || data.notionUrl;
+      if (exportUrl) {
+        notionLink.classList.remove('hidden');
+        document.getElementById('notion-url').href = exportUrl;
+        const linkLabel = document.getElementById('export-link-label');
+        if (linkLabel) linkLabel.textContent = data.backend === 'mealie' ? 'In Mealie ansehen' : 'In Notion ansehen';
+      } else {
+        notionLink.classList.add('hidden');
+      }
+    }
+  </script>
+
+  <!-- ═══════════════════════ SETTINGS MODAL ═══════════════════════ -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-espresso/40 backdrop-blur-sm" onclick="closeSettings()"></div>
+    <div class="absolute inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg bg-cream rounded-2xl shadow-xl border border-espresso/10 overflow-y-auto max-h-[90vh]">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="font-display text-xl font-semibold text-espresso">Einstellungen</h2>
+          <button onclick="closeSettings()" class="text-warmgray hover:text-espresso transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <form id="settings-form" class="space-y-6">
+          <!-- Export-Backend -->
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-2">Export-Ziel</label>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="s_backend" value="notion" class="text-paprika"> Notion</label>
+              <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="s_backend" value="mealie" class="text-paprika"> Mealie</label>
+            </div>
+          </div>
+
+          <!-- Notion -->
+          <div id="s-notion-fields" class="space-y-3 p-4 rounded-xl bg-white/60 border border-espresso/[0.06]">
+            <div>
+              <label class="block text-xs font-medium text-espresso mb-1">Integration Token</label>
+              <input type="password" name="s_notion_token" placeholder="secret_..." class="w-full px-3 py-2 text-sm rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-espresso mb-1">Database ID</label>
+              <input type="text" name="s_notion_database_id" placeholder="Optional" class="w-full px-3 py-2 text-sm rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-espresso mb-1">Parent Page ID</label>
+              <input type="text" name="s_notion_parent_page_id" placeholder="Optional" class="w-full px-3 py-2 text-sm rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+            </div>
+          </div>
+
+          <!-- Mealie -->
+          <div id="s-mealie-fields" class="hidden space-y-3 p-4 rounded-xl bg-white/60 border border-espresso/[0.06]">
+            <div>
+              <label class="block text-xs font-medium text-espresso mb-1">Server-URL</label>
+              <input type="url" name="s_mealie_base_url" placeholder="http://mealie:9000" class="w-full px-3 py-2 text-sm rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-espresso mb-1">API Token</label>
+              <input type="password" name="s_mealie_api_token" placeholder="API-Token" class="w-full px-3 py-2 text-sm rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+            </div>
+          </div>
+
+          <!-- LLM-Backend -->
+          <div>
+            <label class="block text-sm font-medium text-espresso mb-2">LLM-Backend</label>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="s_llm_provider" value="llamacpp" class="text-paprika"> llama.cpp</label>
+              <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="s_llm_provider" value="ollama" class="text-paprika"> Ollama</label>
+            </div>
+          </div>
+
+          <!-- llama.cpp Felder -->
+          <div id="s-llamacpp-fields" class="space-y-3 p-4 rounded-xl bg-white/60 border border-espresso/[0.06]">
+            <div>
+              <label class="block text-xs font-medium text-espresso mb-1">llama.cpp Server-URL</label>
+              <input type="url" name="s_llamacpp_base_url" placeholder="http://192.168.1.168:8003" class="w-full px-3 py-2 text-sm rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-espresso mb-1">Modell</label>
+              <input type="text" name="s_llamacpp_vision_model" placeholder="Qwen3VL-8B-Instruct-Q8_0.gguf" class="w-full px-3 py-2 text-sm rounded-lg border border-espresso/10 focus:outline-none focus:border-paprika/40">
+            </div>
+          </div>
+
+          <!-- Ollama Info -->
+          <div id="s-ollama-fields" class="hidden p-4 rounded-xl bg-white/60 border border-espresso/[0.06]">
+            <p class="text-xs text-warmgray">Text-Modell: <span id="s-ollama-text-model" class="font-mono text-espresso">—</span></p>
+            <p class="text-xs text-warmgray mt-1">Vision-Modell: <span id="s-ollama-model" class="font-mono text-espresso">—</span></p>
+          </div>
+
+          <div id="s-message" class="hidden p-3 rounded-xl text-sm"></div>
+
+          <button type="submit" class="w-full px-6 py-3 rounded-xl bg-paprika text-white font-semibold hover:bg-paprika-dark transition-colors">
+            Speichern
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsForm = document.getElementById('settings-form');
+
+    function openSettings() {
+      settingsModal.classList.remove('hidden');
+      loadSettings();
+    }
+    function closeSettings() {
+      settingsModal.classList.add('hidden');
+    }
+
+    function loadSettings() {
+      fetch('/api/setup/status').then(r => r.json()).then(data => {
+        // Backend
+        const backendRadio = settingsForm.querySelector(`input[name="s_backend"][value="${data.backend}"]`);
+        if (backendRadio) backendRadio.checked = true;
+        toggleSettingsBackend();
+
+        // Notion
+        settingsForm.querySelector('[name="s_notion_token"]').placeholder = data.notion?.hasToken ? '•••••• (gesetzt)' : 'secret_...';
+        if (data.notion?.databaseId) settingsForm.querySelector('[name="s_notion_database_id"]').value = data.notion.databaseId;
+        if (data.notion?.parentPageId) settingsForm.querySelector('[name="s_notion_parent_page_id"]').value = data.notion.parentPageId;
+
+        // Mealie
+        if (data.mealie?.baseUrl) settingsForm.querySelector('[name="s_mealie_base_url"]').value = data.mealie.baseUrl;
+        settingsForm.querySelector('[name="s_mealie_api_token"]').placeholder = data.mealie?.hasToken ? '•••••• (gesetzt)' : 'API-Token';
+
+        // LLM-Backend
+        const llmRadio = settingsForm.querySelector(`input[name="s_llm_provider"][value="${data.llmProvider || 'llamacpp'}"]`);
+        if (llmRadio) llmRadio.checked = true;
+        if (data.llamaCpp?.baseUrl) settingsForm.querySelector('[name="s_llamacpp_base_url"]').value = data.llamaCpp.baseUrl;
+        if (data.llamaCpp?.model) settingsForm.querySelector('[name="s_llamacpp_vision_model"]').value = data.llamaCpp.model;
+        if (data.ollama?.textModel) document.getElementById('s-ollama-text-model').textContent = data.ollama.textModel;
+        if (data.ollama?.visionModel) document.getElementById('s-ollama-model').textContent = data.ollama.visionModel;
+        toggleSettingsLlm();
+      }).catch(() => {});
+    }
+
+    function toggleSettingsBackend() {
+      const backend = settingsForm.querySelector('input[name="s_backend"]:checked')?.value || 'notion';
+      document.getElementById('s-notion-fields').classList.toggle('hidden', backend !== 'notion');
+      document.getElementById('s-mealie-fields').classList.toggle('hidden', backend !== 'mealie');
+    }
+    function toggleSettingsLlm() {
+      const llm = settingsForm.querySelector('input[name="s_llm_provider"]:checked')?.value || 'llamacpp';
+      document.getElementById('s-llamacpp-fields').classList.toggle('hidden', llm !== 'llamacpp');
+      document.getElementById('s-ollama-fields').classList.toggle('hidden', llm !== 'ollama');
+    }
+
+    settingsForm.querySelectorAll('input[name="s_backend"]').forEach(r => r.addEventListener('change', toggleSettingsBackend));
+    settingsForm.querySelectorAll('input[name="s_llm_provider"]').forEach(r => r.addEventListener('change', toggleSettingsLlm));
+
+    settingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msgEl = document.getElementById('s-message');
+      const backend = settingsForm.querySelector('input[name="s_backend"]:checked')?.value || 'notion';
+      const llmProvider = settingsForm.querySelector('input[name="s_llm_provider"]:checked')?.value || 'llamacpp';
+      const notionToken = settingsForm.querySelector('[name="s_notion_token"]').value.trim();
+      const mealieToken = settingsForm.querySelector('[name="s_mealie_api_token"]').value.trim();
+
+      const payload = {
+        EXPORT_BACKEND: backend,
+        LLM_PROVIDER: llmProvider,
+        NOTION_DATABASE_ID: settingsForm.querySelector('[name="s_notion_database_id"]').value.trim(),
+        NOTION_PARENT_PAGE_ID: settingsForm.querySelector('[name="s_notion_parent_page_id"]').value.trim(),
+        MEALIE_BASE_URL: settingsForm.querySelector('[name="s_mealie_base_url"]').value.trim(),
+        LLAMACPP_BASE_URL: settingsForm.querySelector('[name="s_llamacpp_base_url"]').value.trim(),
+        LLAMACPP_VISION_MODEL: settingsForm.querySelector('[name="s_llamacpp_vision_model"]').value.trim(),
+      };
+      if (notionToken && !notionToken.startsWith('••')) payload.NOTION_TOKEN = notionToken;
+      if (mealieToken && !mealieToken.startsWith('••')) payload.MEALIE_API_TOKEN = mealieToken;
+
+      try {
+        const res = await fetch('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (res.ok) {
+          msgEl.textContent = 'Gespeichert!';
+          msgEl.className = 'p-3 rounded-xl text-sm bg-green-50 text-green-800';
+          msgEl.classList.remove('hidden');
+          // Update UI labels
+          const label = backend === 'mealie' ? 'Mealie' : 'Notion';
+          const el = document.getElementById('export-badge-label');
+          if (el) el.textContent = label;
+          const step3 = document.getElementById('step3-label');
+          if (step3) step3.textContent = backend === 'mealie' ? 'In Mealie speichern' : 'In Notion speichern';
+          setTimeout(() => { msgEl.classList.add('hidden'); closeSettings(); }, 1200);
+        } else {
+          msgEl.textContent = data.error || 'Fehler beim Speichern';
+          msgEl.className = 'p-3 rounded-xl text-sm bg-red-50 text-red-700';
+          msgEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        msgEl.textContent = 'Netzwerkfehler: ' + err.message;
+        msgEl.className = 'p-3 rounded-xl text-sm bg-red-50 text-red-700';
+        msgEl.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
