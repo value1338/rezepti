@@ -195,6 +195,7 @@ export async function processImage(
         const [first, ...rest] = list;
         if (first) {
           await uploadRecipeImage(slug, first.buffer, first.mimeType);
+          await uploadRecipeAsset(slug, first.buffer, first.mimeType, "Seite 1");
         }
         for (let i = 0; i < rest.length; i++) {
           await uploadRecipeAsset(slug, rest[i].buffer, rest[i].mimeType, `Seite ${i + 2}`);
