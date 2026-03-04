@@ -111,3 +111,78 @@ export async function createRecipe(
 
   return `${baseUrl}/g/home/r/${slug}`;
 }
+
+function mimeToExt(mimeType: string): string {
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  return "jpg";
+}
+
+/**
+ * Lädt das Hauptbild eines Mealie-Rezepts hoch.
+ * Endpoint: PUT /api/recipes/{slug}/image
+ */
+export async function uploadRecipeImage(
+  slug: string,
+  imageBuffer: Buffer,
+  mimeType: string
+): Promise<void> {
+  const baseUrl = getBaseUrl();
+  const auth = getAuthHeader();
+
+  const ext = mimeToExt(mimeType);
+  const formData = new FormData();
+  formData.append(
+    "image",
+    new Blob([new Uint8Array(imageBuffer)], { type: mimeType }),
+    `recipe.${ext}`
+  );
+  formData.append("extension", ext);
+
+  const res = await fetch(`${baseUrl}/api/recipes/${slug}/image`, {
+    method: "PUT",
+    headers: { Authorization: auth },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    console.warn(`Mealie Hauptbild-Upload fehlgeschlagen (${res.status}): ${errText}`);
+  }
+}
+
+/**
+ * Lädt ein zusätzliches Bild als Asset an ein Mealie-Rezept.
+ * Endpoint: POST /api/recipes/{slug}/assets
+ */
+export async function uploadRecipeAsset(
+  slug: string,
+  imageBuffer: Buffer,
+  mimeType: string,
+  name: string
+): Promise<void> {
+  const baseUrl = getBaseUrl();
+  const auth = getAuthHeader();
+
+  const ext = mimeToExt(mimeType);
+  const formData = new FormData();
+  formData.append(
+    "file",
+    new Blob([new Uint8Array(imageBuffer)], { type: mimeType }),
+    `${name}.${ext}`
+  );
+  formData.append("name", name);
+  formData.append("extension", ext);
+  formData.append("icon", "mdi-image");
+
+  const res = await fetch(`${baseUrl}/api/recipes/${slug}/assets`, {
+    method: "POST",
+    headers: { Authorization: auth },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    console.warn(`Mealie Asset-Upload fehlgeschlagen (${res.status}): ${errText}`);
+  }
+}

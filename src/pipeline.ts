@@ -12,6 +12,7 @@ import {
 import { extractRecipeFromPhoto, type PhotoInput } from "./processors/vision.js";
 import { transcribeAudio } from "./processors/whisper.js";
 import { exportRecipe } from "./export.js";
+import { uploadRecipeImage, uploadRecipeAsset } from "./mealie.js";
 import { createTempDir, cleanupTempDir } from "./temp.js";
 import { config } from "./config.js";
 import type {
@@ -187,6 +188,19 @@ export async function processImage(
         message: "Rezept wird nach Mealie exportiert...",
       });
       exportUrl = await exportRecipe(recipe, "foto-upload");
+
+      // Fotos in Mealie hochladen: erstes = Hauptbild, weitere = Assets
+      const slug = exportUrl.split("/").pop();
+      if (slug) {
+        const [first, ...rest] = list;
+        if (first) {
+          await uploadRecipeImage(slug, first.buffer, first.mimeType);
+        }
+        for (let i = 0; i < rest.length; i++) {
+          await uploadRecipeAsset(slug, rest[i].buffer, rest[i].mimeType, `Seite ${i + 2}`);
+        }
+      }
+
       await emit(onEvent, {
         stage: "exporting",
         message: "Rezept in Mealie gespeichert!",
