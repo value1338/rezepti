@@ -3,7 +3,9 @@ import { serve } from "@hono/node-server";
 import { readFileSync } from "node:fs";
 import { join, extname } from "node:path";
 import { config, isExportConfigured } from "./config.js";
-import { processURL, processImage } from "./pipeline.js";
+import { processURL, processImage, processURLWithWhisper } from "./pipeline.js";
+import { updateRecipe } from "./mealie.js";
+import { exportRecipe } from "./export.js";
 import { ensureDatabase } from "./notion.js";
 import { updateEnv } from "./env.js";
 import type { PipelineEvent } from "./types.js";
@@ -119,6 +121,58 @@ app.post("/api/extract-image", async (c) => {
     };
 
     await processImage(images, sendEvent);
+  });
+});
+
+// Whisper-Retry: URL erneut mit Whisper-Transkription verarbeiten
+app.get("/api/whisper-retry", async (c) => {
+  const url = c.req.query("url");
+  const slug = c.req.query("slug"); // optional: Mealie-Slug zum Updaten
+  if (!url) {
+    return c.json({ error: "URL-Parameter fehlt" }, 400);
+  }
+
+  return streamSSE(c, async (stream) => {
+    let lastRecipe: { recipe?: Record<string, unknown>; transcript?: string } = {};
+
+    const sendEvent = async (event: PipelineEvent) => {
+      await stream.writeSSE({
+        event: event.stage,
+        data: JSON.stringify(event),
+      });
+      // Rezept-Daten für Export merken
+      if (event.stage === "done" && event.data) {
+        lastRecipe = event.data as typeof lastRecipe;
+      }
+    };
+
+    const result = await processURLWithWhisper(url, sendEvent);
+
+    // Nach erfolgreicher Extraktion: Export oder Update
+    if (result.success && result.recipe) {
+      try {
+        if (slug && config.exportBackend === "mealie") {
+          await updateRecipe(slug, result.recipe, url);
+          const exportUrl = `${config.mealie.baseUrl}/g/home/r/${slug}`;
+          await stream.writeSSE({
+            event: "exporting",
+            data: JSON.stringify({ stage: "exporting", message: "Mealie-Rezept aktualisiert!", data: { url: exportUrl } }),
+          });
+        } else {
+          const exportUrl = await exportRecipe(result.recipe, url);
+          await stream.writeSSE({
+            event: "exporting",
+            data: JSON.stringify({ stage: "exporting", message: "Rezept exportiert!", data: { url: exportUrl } }),
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Export-Fehler";
+        await stream.writeSSE({
+          event: "error",
+          data: JSON.stringify({ stage: "error", message: msg }),
+        });
+      }
+    }
   });
 });
 

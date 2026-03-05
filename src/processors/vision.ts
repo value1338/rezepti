@@ -11,6 +11,7 @@ WICHTIG: Lies den tatsächlich im Bild/in den Bildern sichtbaren Text sorgfälti
 3. Zutaten: Extrahiere NUR die tatsächlich sichtbaren Zutaten. Erfinde keine Zutaten.
 4. Zubereitungsschritte: Wenn explizite Schritte sichtbar sind, extrahiere diese. Falls KEINE Schritte sichtbar sind, aber eine Beschreibung vorhanden ist (z.B. "Brot mit Speck im Ofen überbacken"), leite sinnvolle Zubereitungsschritte daraus ab.
 5. Übersetze ALLES ins Deutsche (Name, Zutaten, Schritte).
+   WICHTIG: Übernimm alle Zutaten- und Produktnamen exakt so, wie sie im Bild stehen — ändere, kürze oder ersetze sie NICHT. Korrigiere nur offensichtliche OCR-Fehler (z.B. "sElZ" → "Salz"), aber verändere niemals Markennamen oder Eigennamen.
 6. Konvertiere alle Mengenangaben in metrische Einheiten:
    - cups → ml (1 cup = 240ml)
    - oz → g (1 oz = 28g)
@@ -154,7 +155,14 @@ async function extractViaLlamaCpp(images: PhotoInput[]): Promise<RecipeData> {
     ],
     temperature: 0.2,
     max_tokens: 8192,
-    response_format: { type: "json_object" },
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "recipe",
+        strict: true,
+        schema: buildRecipeJsonSchema(),
+      },
+    },
   };
 
   const response = await fetch(`${baseUrl}/v1/chat/completions`, {

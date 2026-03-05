@@ -409,7 +409,7 @@
           <ol id="recipe-steps" class="list-none space-y-3 text-espresso/70 mb-8 font-body counter-reset-steps"></ol>
 
           <!-- Notion link -->
-          <div id="notion-link" class="hidden pt-6 border-t border-espresso/[0.06]">
+          <div id="notion-link" class="hidden pt-6 border-t border-espresso/[0.06] flex flex-wrap gap-3">
             <a
               id="notion-url"
               href="#"
@@ -421,6 +421,14 @@
               </svg>
               <span id="export-link-label">In Notion ansehen</span> &rarr;
             </a>
+            <button
+              id="whisper-retry-btn"
+              type="button"
+              class="hidden inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-espresso/10 hover:bg-espresso/20 text-espresso font-semibold font-body transition-colors w-full sm:w-auto"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              <span id="whisper-retry-label">Mit Whisper erneut verarbeiten</span>
+            </button>
           </div>
         </div>
       </div>
@@ -768,7 +776,84 @@
       } else {
         notionLink.classList.add('hidden');
       }
+
+      // Whisper-Button nur bei Video-Quellen anzeigen
+      const whisperBtn = document.getElementById('whisper-retry-btn');
+      const sourceUrl = urlInput.value.trim();
+      const isVideo = /instagram|youtube|youtu\.be|tiktok/i.test(sourceUrl);
+      if (isVideo && whisperBtn) {
+        whisperBtn.classList.remove('hidden');
+        // Slug aus exportUrl extrahieren (letztes Pfad-Segment)
+        whisperBtn.dataset.url = sourceUrl;
+        if (exportUrl) {
+          whisperBtn.dataset.slug = exportUrl.split('/').pop() || '';
+        }
+      } else if (whisperBtn) {
+        whisperBtn.classList.add('hidden');
+      }
     }
+
+    // Whisper-Retry Button Handler
+    document.getElementById('whisper-retry-btn').addEventListener('click', async function() {
+      const btn = this;
+      const sourceUrl = btn.dataset.url;
+      const slug = btn.dataset.slug || '';
+      if (!sourceUrl) return;
+
+      btn.disabled = true;
+      btn.querySelector('#whisper-retry-label').textContent = 'Whisper wird ausgeführt...';
+      progress.classList.remove('hidden');
+      error.classList.add('hidden');
+      progressLog.innerHTML = '';
+      progress.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      try {
+        const params = new URLSearchParams({ url: sourceUrl });
+        if (slug) params.set('slug', slug);
+        const evtSource = new EventSource(`/api/whisper-retry?${params}`);
+
+        evtSource.addEventListener('classifying', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('fetching', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('transcribing', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('extracting', (e) => handleEvent(JSON.parse(e.data)));
+        evtSource.addEventListener('exporting', (e) => handleEvent(JSON.parse(e.data)));
+
+        evtSource.addEventListener('done', (e) => {
+          evtSource.close();
+          const event = JSON.parse(e.data);
+          handleEvent(event);
+          showResult(event.data);
+          btn.disabled = false;
+          btn.querySelector('#whisper-retry-label').textContent = 'Mit Whisper erneut verarbeiten';
+          progress.classList.add('hidden');
+        });
+
+        evtSource.addEventListener('error', (e) => {
+          if (e.data) {
+            const event = JSON.parse(e.data);
+            showError(event.message);
+          } else {
+            showError('Verbindung zum Server verloren.');
+          }
+          evtSource.close();
+          btn.disabled = false;
+          btn.querySelector('#whisper-retry-label').textContent = 'Mit Whisper erneut verarbeiten';
+          progress.classList.add('hidden');
+        });
+
+        evtSource.onerror = () => {
+          evtSource.close();
+          btn.disabled = false;
+          btn.querySelector('#whisper-retry-label').textContent = 'Mit Whisper erneut verarbeiten';
+          progress.classList.add('hidden');
+        };
+      } catch (err) {
+        showError(err.message || 'Unbekannter Fehler');
+        btn.disabled = false;
+        btn.querySelector('#whisper-retry-label').textContent = 'Mit Whisper erneut verarbeiten';
+        progress.classList.add('hidden');
+      }
+    });
   </script>
 
   <!-- ═══════════════════════ SETTINGS MODAL ═══════════════════════ -->

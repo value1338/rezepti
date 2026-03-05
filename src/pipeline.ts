@@ -229,6 +229,7 @@ interface ExtractionResult {
   transcript?: string;
 }
 
+
 async function extractFromBundle(
   bundle: ContentBundle,
   tempDir: string,
@@ -244,7 +245,6 @@ async function extractFromBundle(
       message: "Rezept wird aus Text extrahiert...",
     });
     const recipe = await extractRecipeFromText(textContent, bundle.imageUrls[0]);
-    // Include subtitles as transcript (they came from a video)
     return { recipe, transcript: bundle.subtitles };
   }
 
@@ -284,4 +284,94 @@ async function extractFromBundle(
   throw new Error(
     "Kein Rezept-Inhalt gefunden. Weder Text, Audio noch Bilder verfügbar."
   );
+}
+
+/**
+ * Whisper-Retry: URL erneut fetchen, Whisper erzwingen,
+ * Caption + Transkript kombinieren, LLM extrahieren.
+ * Kein automatischer Export — das Ergebnis wird zurückgegeben.
+ */
+export async function processURLWithWhisper(
+  rawUrl: string,
+  onEvent: EventCallback
+): Promise<PipelineResult> {
+  const tempDir = createTempDir();
+
+  try {
+    await emit(onEvent, { stage: "classifying", message: "URL wird analysiert..." });
+    const classified = classifyURL(rawUrl);
+
+    await emit(onEvent, {
+      stage: "fetching",
+      message: `Inhalte werden abgerufen (${classified.type})...`,
+    });
+
+    let bundle: ContentBundle;
+    switch (classified.type) {
+      case "youtube":
+        bundle = await fetchYouTube(classified.url, tempDir);
+        break;
+      case "instagram":
+        bundle = await fetchInstagram(classified.url, tempDir);
+        break;
+      case "tiktok":
+        bundle = await fetchTikTok(classified.url, tempDir);
+        break;
+      case "web":
+      default:
+        bundle = await fetchWeb(classified.url);
+        break;
+    }
+
+    await emit(onEvent, { stage: "fetching", message: "Inhalte abgerufen." });
+
+    if (!bundle.audioPath) {
+      throw new Error("Kein Audio/Video zum Transkribieren gefunden.");
+    }
+
+    await emit(onEvent, {
+      stage: "transcribing",
+      message: "Audio wird transkribiert (Whisper)...",
+    });
+    const transcript = await transcribeAudio(bundle.audioPath, tempDir);
+    await emit(onEvent, {
+      stage: "transcribing",
+      message: "Transkription abgeschlossen.",
+    });
+
+    const textContent =
+      bundle.subtitles || bundle.textContent || bundle.description || "";
+    const combined = [textContent, transcript].filter(Boolean).join("\n\n---\n\n");
+
+    if (combined.length < 50) {
+      throw new Error("Transkription zu kurz — kein verwertbarer Inhalt.");
+    }
+
+    await emit(onEvent, {
+      stage: "extracting",
+      message: "Rezept wird aus Transkription + Text extrahiert...",
+    });
+    const recipe = await extractRecipeFromText(combined, bundle.imageUrls[0]);
+
+    await emit(onEvent, {
+      stage: "extracting",
+      message: `Rezept extrahiert: ${recipe.name}`,
+      data: recipe,
+    });
+
+    await emit(onEvent, {
+      stage: "done",
+      message: "Whisper-Extraktion abgeschlossen.",
+      data: { recipe, transcript },
+    });
+
+    return { success: true, recipe };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unbekannter Fehler";
+    await emit(onEvent, { stage: "error", message });
+    return { success: false, error: message };
+  } finally {
+    cleanupTempDir(tempDir);
+  }
 }

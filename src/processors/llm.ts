@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { Ollama } from "ollama";
 import { config } from "../config.js";
 import { RecipeDataSchema, type RecipeData } from "../types.js";
@@ -6,6 +9,7 @@ const SYSTEM_PROMPT = `Du bist ein Rezept-Extraktor. Deine Aufgabe:
 
 1. Extrahiere das Rezept aus dem gegebenen Text/Inhalt.
 2. Übersetze ALLES ins Deutsche (Rezeptname, Zutaten, Schritte).
+   WICHTIG: Übernimm alle Zutaten- und Produktnamen exakt so, wie sie im Text stehen — ändere, kürze oder ersetze sie NICHT. Korrigiere nur offensichtliche OCR-Fehler (z.B. "sElZ" → "Salz"), aber verändere niemals Markennamen oder Eigennamen.
 3. Konvertiere alle Mengenangaben in metrische Einheiten:
    - cups → ml (1 cup = 240ml)
    - oz → g (1 oz = 28g)
@@ -85,7 +89,14 @@ async function llamaCppChat(
     messages,
     temperature: 0.3,
     max_tokens: 8192,
-    response_format: { type: "json_object" },
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "recipe",
+        strict: true,
+        schema: buildRecipeJsonSchema(),
+      },
+    },
   };
 
   const response = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -135,7 +146,7 @@ export async function extractRecipeFromText(
   text: string,
   existingImageUrl?: string
 ): Promise<RecipeData> {
-  const prompt = `Extrahiere das Rezept aus folgendem Inhalt:\n\n${text.slice(0, 8000)}`;
+  const prompt = `Extrahiere das Rezept aus folgendem Inhalt. Übernimm alle Zutaten- und Produktnamen exakt wie im Text — kürze, ersetze oder vereinfache sie NICHT. Korrigiere nur offensichtliche OCR-Fehler (Groß-/Kleinschreibung, einzelne falsche Zeichen).\n\n${text.slice(0, 8000)}`;
 
   let raw: Record<string, unknown>;
 
@@ -155,16 +166,24 @@ export async function extractRecipeFromText(
     raw.imageUrl = existingImageUrl;
   }
 
-  return RecipeDataSchema.parse(raw);
+  return RecipeDataSchema.parse(sanitizeRawRecipe(raw));
 }
 
 export async function extractRecipeFromImage(
   imageUrl: string,
   additionalText?: string
 ): Promise<RecipeData> {
-  const imageResponse = await fetch(imageUrl);
-  const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-  const base64Image = imageBuffer.toString("base64");
+  let base64Image: string;
+  const isLocalPath = !imageUrl.startsWith("http") && existsSync(imageUrl);
+  if (isLocalPath) {
+    const buf = await readFile(imageUrl);
+    base64Image = buf.toString("base64");
+  } else {
+    const fetchUrl = imageUrl.startsWith("http") ? imageUrl : pathToFileURL(imageUrl).href;
+    const imageResponse = await fetch(fetchUrl);
+    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+    base64Image = imageBuffer.toString("base64");
+  }
 
   const prompt = additionalText
     ? `Extrahiere das Rezept aus diesem Bild. Zusätzlicher Kontext:\n${additionalText}`
@@ -196,7 +215,26 @@ export async function extractRecipeFromImage(
     raw.imageUrl = imageUrl;
   }
 
-  return RecipeDataSchema.parse(raw);
+  return RecipeDataSchema.parse(sanitizeRawRecipe(raw));
+}
+
+/** Füllt fehlende Pflichtfelder, wenn das LLM unvollständig antwortet. */
+function sanitizeRawRecipe(raw: Record<string, unknown>): Record<string, unknown> {
+  const ingredients = Array.isArray(raw.ingredients) && raw.ingredients.length > 0
+    ? raw.ingredients
+    : ["Rezept aus Original-Quelle übernehmen"];
+  const steps = Array.isArray(raw.steps) && raw.steps.length > 0
+    ? raw.steps
+    : ["Siehe Beschreibung oder Video in der Quelle."];
+  return {
+    ...raw,
+    name: raw.name ?? "Rezept",
+    duration: ["kurz", "mittel", "lang"].includes(String(raw.duration)) ? raw.duration : "mittel",
+    tags: Array.isArray(raw.tags) ? raw.tags : [],
+    emoji: raw.emoji ?? "🍽️",
+    ingredients,
+    steps,
+  };
 }
 
 /**
@@ -206,7 +244,7 @@ export async function extractRecipeFromImage(
 export async function refineRecipe(
   partial: Partial<RecipeData>
 ): Promise<RecipeData> {
-  const prompt = `Übersetze und verfeinere dieses Rezept ins Deutsche. Konvertiere alle Einheiten ins metrische System. Schätze Kalorien. Wähle ein Emoji und Tags.\n\nRezept-Daten:\n${JSON.stringify(partial, null, 2)}`;
+  const prompt = `Übersetze und verfeinere dieses Rezept ins Deutsche. Konvertiere alle Einheiten ins metrische System. Schätze Kalorien. Wähle ein Emoji und Tags. Übernimm alle Zutaten- und Produktnamen exakt wie angegeben — kürze, ersetze oder vereinfache sie NICHT. Korrigiere nur offensichtliche OCR-Fehler.\n\nRezept-Daten:\n${JSON.stringify(partial, null, 2)}`;
 
   let raw: Record<string, unknown>;
 
@@ -233,5 +271,5 @@ export async function refineRecipe(
     raw.ingredients = partial.ingredients;
   }
 
-  return RecipeDataSchema.parse(raw);
+  return RecipeDataSchema.parse(sanitizeRawRecipe(raw));
 }

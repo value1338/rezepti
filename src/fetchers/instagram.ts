@@ -2,65 +2,99 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
 import { config } from "../config.js";
 import type { ContentBundle } from "../types.js";
 
 const execFileAsync = promisify(execFile);
+const ytDlp = config.ytDlpPath;
+
+/** Extrahiert Caption aus yt-dlp info.json (alle bekannten Strukturen) */
+function extractDescription(info: Record<string, unknown>): string {
+  const d = info.description ?? info.fulldescription ?? info.caption;
+  if (typeof d === "string" && d.length > 0) return d;
+  if (d && typeof d === "object" && "text" in d && typeof (d as { text: unknown }).text === "string") {
+    return (d as { text: string }).text;
+  }
+  const edges = (info as { edge_media_to_caption?: { edges?: Array<{ node?: { text?: string } }> } }).edge_media_to_caption?.edges;
+  const text = edges?.[0]?.node?.text;
+  if (typeof text === "string" && text.length > 0) return text;
+  return "";
+}
 
 /**
  * Fetch Instagram content using yt-dlp.
+ * Identisch zum Original-Repo: Download mit --write-info-json, Metadaten aus info.json.
  */
 export async function fetchInstagram(
   url: string,
   tempDir: string
 ): Promise<ContentBundle> {
-  // Download post with metadata
-  const outTemplate = join(tempDir, "insta");
+  const outTemplate = join(tempDir, "insta.%(ext)s");
 
   try {
-    await execFileAsync(config.ytDlpPath, [
+    await execFileAsync(ytDlp, [
       "--write-info-json",
       "--write-thumbnail",
+      "--no-playlist",
       "-o", outTemplate,
       url,
     ], { timeout: 60_000 });
   } catch {
-    // Sometimes yt-dlp fails for Instagram but still writes info.json
+    // yt-dlp kann teilweise erfolgreich sein und trotzdem info.json schreiben
   }
 
   const files = await readdir(tempDir);
 
-  // Read info.json for metadata
   let title = "";
   let description = "";
   let imageUrls: string[] = [];
   let audioPath: string | undefined;
 
-  const infoFile = files.find((f) => f.endsWith(".info.json"));
-  if (infoFile) {
+  // Alle .info.json lesen (Reels können mehrere erzeugen)
+  const infoFiles = files.filter((f) => f.endsWith(".info.json"));
+  for (const infoFile of infoFiles) {
     try {
       const info = JSON.parse(
         await readFile(join(tempDir, infoFile), "utf-8")
-      );
-      title = info.title || info.fulltitle || "";
-      description = info.description || "";
+      ) as Record<string, unknown>;
+      if (!title) title = String(info.title ?? info.fulltitle ?? "");
+      const desc = extractDescription(info);
+      if (desc.length > description.length) description = desc;
 
-      // Collect thumbnail URLs
-      if (info.thumbnail) {
-        imageUrls.push(info.thumbnail);
+      if (info.thumbnail && !imageUrls.includes(String(info.thumbnail))) {
+        imageUrls.push(String(info.thumbnail));
       }
-      if (info.thumbnails) {
-        for (const t of info.thumbnails) {
-          if (t.url) imageUrls.push(t.url);
-        }
+      for (const t of (info.thumbnails as Array<{ url?: string }>) || []) {
+        if (t?.url && !imageUrls.includes(t.url)) imageUrls.push(t.url);
       }
     } catch {
       // ignore parse errors
     }
   }
 
-  // Check for downloaded images
+  // Fallback: Keine Caption in info.json → --dump-json (evtl. anderer Extraktionspfad)
+  if (!description) {
+    try {
+      const { stdout } = await execFileAsync(ytDlp, [
+        "--dump-json",
+        "--no-download",
+        "--no-playlist",
+        url,
+      ], { timeout: 30_000 });
+      const info = JSON.parse(stdout) as Record<string, unknown>;
+      description = extractDescription(info);
+      if (!title && (info.title || info.fulltitle)) {
+        title = String(info.title ?? info.fulltitle);
+      }
+      if (info.thumbnail && !imageUrls.includes(String(info.thumbnail))) {
+        imageUrls.unshift(String(info.thumbnail));
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Heruntergeladene Bilder (lokale Pfade)
   const imageFiles = files.filter((f) =>
     /\.(jpg|jpeg|png|webp)$/i.test(f)
   );
@@ -68,7 +102,7 @@ export async function fetchInstagram(
     imageUrls.push(join(tempDir, img));
   }
 
-  // Check for downloaded video/audio
+  // Heruntergeladenes Video/Audio für Whisper
   const mediaFile = files.find((f) =>
     /\.(mp4|m4a|webm|mp3)$/i.test(f)
   );

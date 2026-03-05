@@ -14,7 +14,7 @@ export async function fetchTikTok(
   url: string,
   tempDir: string
 ): Promise<ContentBundle> {
-  const outTemplate = join(tempDir, "tiktok");
+  const outTemplate = join(tempDir, "tiktok.%(ext)s");
 
   try {
     await execFileAsync(config.ytDlpPath, [

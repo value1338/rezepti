@@ -18,15 +18,15 @@ function getAuthHeader(): string {
 }
 
 /** Dauer-Kategorie zu ISO 8601 (PT20M etc.) */
-function durationToIso(duration: string): string {
+function durationToIso(duration: string): { prepTime: string; totalTime: string } {
   switch (duration) {
     case "kurz":
-      return "PT15M";
+      return { prepTime: "PT10M", totalTime: "PT15M" };
     case "lang":
-      return "PT90M";
+      return { prepTime: "PT30M", totalTime: "PT90M" };
     case "mittel":
     default:
-      return "PT40M";
+      return { prepTime: "PT15M", totalTime: "PT40M" };
   }
 }
 
@@ -48,7 +48,7 @@ export async function createRecipe(
     name: recipe.name,
     recipeIngredient: recipe.ingredients,
     recipeInstructions: recipe.steps,
-    prepTime: durationToIso(recipe.duration),
+    ...durationToIso(recipe.duration),
     recipeYield: recipe.servings || undefined,
     recipeCategory: recipe.tags.length > 0 ? recipe.tags : undefined,
   };
@@ -110,6 +110,51 @@ export async function createRecipe(
   }
 
   return `${baseUrl}/g/home/r/${slug}`;
+}
+
+/**
+ * Aktualisiert ein bestehendes Mealie-Rezept per PATCH.
+ * Slug wird aus der exportUrl extrahiert (letztes Pfad-Segment).
+ */
+export async function updateRecipe(
+  slug: string,
+  recipe: RecipeData,
+  sourceUrl: string,
+  transcript?: string
+): Promise<void> {
+  const baseUrl = getBaseUrl();
+  const auth = getAuthHeader();
+  const { prepTime, totalTime } = durationToIso(recipe.duration);
+
+  let notes = `Quelle: ${sourceUrl}`;
+  if (transcript) {
+    notes += `\n\n--- Transkript ---\n${transcript}`;
+  }
+
+  const body: Record<string, unknown> = {
+    name: recipe.name,
+    recipeIngredient: recipe.ingredients.map((ing) => ({ note: ing })),
+    recipeInstructions: recipe.steps.map((step) => ({ text: step })),
+    prepTime,
+    totalTime,
+    recipeYield: recipe.servings || undefined,
+    recipeCategory: recipe.tags.length > 0 ? recipe.tags : undefined,
+    notes: [{ title: "", text: notes }],
+  };
+
+  const res = await fetch(`${baseUrl}/api/recipes/${slug}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: auth,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Mealie Update Fehler: ${res.status} ${errText}`);
+  }
 }
 
 function mimeToExt(mimeType: string): string {
