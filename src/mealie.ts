@@ -126,18 +126,29 @@ export async function updateRecipe(
   const auth = getAuthHeader();
   const { prepTime, totalTime } = durationToIso(recipe.duration);
 
+  // Bestehendes Rezept laden um alle Pflichtfelder zu erhalten
+  const getRes = await fetch(`${baseUrl}/api/recipes/${slug}`, {
+    headers: { Authorization: auth },
+  });
+  if (!getRes.ok) {
+    const errText = await getRes.text();
+    throw new Error(`Mealie Fehler beim Laden: ${getRes.status} ${errText}`);
+  }
+  const existingData = await getRes.json() as Record<string, unknown>;
+
   let notes = `Quelle: ${sourceUrl}`;
   if (transcript) {
     notes += `\n\n--- Transkript ---\n${transcript}`;
   }
 
+  // Bestehendes Rezept als Basis, nur geänderte Felder überschreiben
   const body: Record<string, unknown> = {
+    ...existingData,
     name: recipe.name,
     recipeIngredient: recipe.ingredients.map((ing) => ({ note: ing })),
     recipeInstructions: recipe.steps.map((step) => ({ text: step })),
     prepTime,
     totalTime,
-    recipeYield: recipe.servings || undefined,
     notes: [{ title: "", text: notes }],
   };
 
