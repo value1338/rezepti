@@ -412,7 +412,7 @@
           <h3 class="text-lg font-display font-semibold text-espresso/80 mb-3">Zubereitung</h3>
           <ol id="recipe-steps" class="list-none space-y-3 text-espresso/70 mb-8 font-body counter-reset-steps"></ol>
 
-          <!-- Notion link -->
+          <!-- Export link (Mealie/Notion) -->
           <div id="notion-link" class="hidden pt-6 border-t border-espresso/[0.06] flex flex-wrap gap-3">
             <a
               id="notion-url"
@@ -425,6 +425,9 @@
               </svg>
               <span id="export-link-label">In Notion ansehen</span> &rarr;
             </a>
+          </div>
+          <!-- Whisper action buttons (independent of export link visibility) -->
+          <div id="whisper-actions" class="hidden pt-4 flex flex-wrap gap-3">
             <button
               id="whisper-retry-btn"
               type="button"
@@ -810,16 +813,19 @@
       }
 
       // Whisper-Button nur bei Video-Quellen anzeigen
+      const whisperActions = document.getElementById('whisper-actions');
       const whisperBtn = document.getElementById('whisper-retry-btn');
       const sourceUrl = urlInput.value.trim();
       const isVideo = /instagram|youtube|youtu\.be|tiktok/i.test(sourceUrl);
       if (isVideo && whisperBtn) {
+        whisperActions.classList.remove('hidden');
         whisperBtn.classList.remove('hidden');
         whisperBtn.dataset.url = sourceUrl;
         if (exportUrl) {
           whisperBtn.dataset.slug = exportUrl.split('/').pop() || '';
         }
       } else if (whisperBtn) {
+        whisperActions.classList.add('hidden');
         whisperBtn.classList.add('hidden');
       }
       // Export-Confirm-Button immer zurücksetzen bei neuem Ergebnis
@@ -878,6 +884,7 @@
             const exportBtn = document.getElementById('whisper-export-btn');
             const exportLabel = document.getElementById('whisper-export-label');
             exportLabel.textContent = slug ? 'Mealie-Rezept aktualisieren' : 'In Mealie speichern';
+            document.getElementById('whisper-actions').classList.remove('hidden');
             exportBtn.classList.remove('hidden');
           }
           btn.disabled = false;
