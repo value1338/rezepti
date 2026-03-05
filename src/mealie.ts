@@ -152,8 +152,10 @@ export async function updateRecipe(
     notes: [{ title: "", text: notes }],
   };
 
+  // PUT statt PATCH — Mealie PATCH hat einen Bug bei recipeIngredient/recipeInstructions
+  // (github.com/mealie-recipes/mealie/issues/6802)
   const res = await fetch(`${baseUrl}/api/recipes/${slug}`, {
-    method: "PATCH",
+    method: "PUT",
     headers: {
       Authorization: auth,
       "Content-Type": "application/json",
