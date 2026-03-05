@@ -124,56 +124,54 @@ app.post("/api/extract-image", async (c) => {
   });
 });
 
-// Whisper-Retry: URL erneut mit Whisper-Transkription verarbeiten
+// Whisper-Retry: URL erneut mit Whisper-Transkription verarbeiten (nur Extraktion, kein Auto-Export)
 app.get("/api/whisper-retry", async (c) => {
   const url = c.req.query("url");
-  const slug = c.req.query("slug"); // optional: Mealie-Slug zum Updaten
   if (!url) {
     return c.json({ error: "URL-Parameter fehlt" }, 400);
   }
 
   return streamSSE(c, async (stream) => {
-    let lastRecipe: { recipe?: Record<string, unknown>; transcript?: string } = {};
-
     const sendEvent = async (event: PipelineEvent) => {
       await stream.writeSSE({
         event: event.stage,
         data: JSON.stringify(event),
       });
-      // Rezept-Daten für Export merken
-      if (event.stage === "done" && event.data) {
-        lastRecipe = event.data as typeof lastRecipe;
-      }
     };
 
-    const result = await processURLWithWhisper(url, sendEvent);
-
-    // Nach erfolgreicher Extraktion: Export oder Update
-    if (result.success && result.recipe) {
-      try {
-        if (slug && config.exportBackend === "mealie") {
-          await updateRecipe(slug, result.recipe, url);
-          const exportUrl = `${config.mealie.baseUrl}/g/home/r/${slug}`;
-          await stream.writeSSE({
-            event: "exporting",
-            data: JSON.stringify({ stage: "exporting", message: "Mealie-Rezept aktualisiert!", data: { url: exportUrl } }),
-          });
-        } else {
-          const exportUrl = await exportRecipe(result.recipe, url);
-          await stream.writeSSE({
-            event: "exporting",
-            data: JSON.stringify({ stage: "exporting", message: "Rezept exportiert!", data: { url: exportUrl } }),
-          });
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Export-Fehler";
-        await stream.writeSSE({
-          event: "error",
-          data: JSON.stringify({ stage: "error", message: msg }),
-        });
-      }
-    }
+    await processURLWithWhisper(url, sendEvent);
   });
+});
+
+// Whisper-Export: Extrahiertes Rezept nach Mealie/Notion exportieren oder updaten
+app.post("/api/whisper-export", async (c) => {
+  const { recipe, sourceUrl, slug } = await c.req.json<{
+    recipe: Record<string, unknown>;
+    sourceUrl: string;
+    slug?: string;
+  }>();
+
+  if (!recipe || !sourceUrl) {
+    return c.json({ error: "recipe und sourceUrl erforderlich" }, 400);
+  }
+
+  try {
+    let exportUrl: string;
+    if (slug && config.exportBackend === "mealie") {
+      const { RecipeDataSchema } = await import("./types.js");
+      const parsed = RecipeDataSchema.parse(recipe);
+      await updateRecipe(slug, parsed, sourceUrl);
+      exportUrl = `${config.mealie.baseUrl}/g/home/r/${slug}`;
+    } else {
+      const { RecipeDataSchema } = await import("./types.js");
+      const parsed = RecipeDataSchema.parse(recipe);
+      exportUrl = await exportRecipe(parsed, sourceUrl);
+    }
+    return c.json({ exportUrl, backend: config.exportBackend });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Export-Fehler";
+    return c.json({ error: msg }, 500);
+  }
 });
 
 // Setup API

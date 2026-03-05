@@ -364,13 +364,17 @@
     <!-- Progress -->
     <div id="progress" class="hidden mb-8">
       <div class="bg-white/80 backdrop-blur-sm rounded-2xl border border-espresso/[0.06] p-6 shadow-sm">
-        <div class="flex items-center gap-3 mb-4">
+        <div class="flex items-center gap-3 mb-3">
           <div class="flex gap-1">
             <span class="loading-dot w-2 h-2 bg-paprika rounded-full inline-block"></span>
             <span class="loading-dot w-2 h-2 bg-paprika rounded-full inline-block"></span>
             <span class="loading-dot w-2 h-2 bg-paprika rounded-full inline-block"></span>
           </div>
           <span id="progress-text" class="text-warmgray font-medium">Starte...</span>
+        </div>
+        <!-- Fortschrittsbalken -->
+        <div class="w-full bg-espresso/[0.06] rounded-full h-1.5 mb-4 overflow-hidden">
+          <div id="progress-bar" class="h-1.5 rounded-full bg-paprika transition-all duration-700 ease-out" style="width: 5%"></div>
         </div>
         <div id="progress-log" class="space-y-1 text-sm text-warmgray/70 max-h-40 overflow-y-auto font-body"></div>
       </div>
@@ -428,6 +432,14 @@
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               <span id="whisper-retry-label">Mit Whisper erneut verarbeiten</span>
+            </button>
+            <button
+              id="whisper-export-btn"
+              type="button"
+              class="hidden inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-paprika hover:bg-paprika/80 text-white font-semibold font-body transition-colors w-full sm:w-auto"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span id="whisper-export-label">Ergebnis speichern</span>
             </button>
           </div>
         </div>
@@ -566,6 +578,7 @@
       error.classList.add('hidden');
       result.classList.add('hidden');
       progressLog.innerHTML = '';
+      setProgressBar(5);
       progress.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       const formData = new FormData();
@@ -636,6 +649,7 @@
       error.classList.add('hidden');
       result.classList.add('hidden');
       progressLog.innerHTML = '';
+      setProgressBar(5);
       submitBtn.disabled = true;
 
       // Scroll to progress
@@ -684,8 +698,26 @@
       }
     });
 
+    const STAGE_PROGRESS = {
+      classifying: 10,
+      fetching: 25,
+      transcribing: 50,
+      analyzing_image: 55,
+      extracting: 80,
+      exporting: 92,
+      done: 100,
+      error: 100,
+    };
+
+    function setProgressBar(pct) {
+      const bar = document.getElementById('progress-bar');
+      if (bar) bar.style.width = pct + '%';
+    }
+
     function handleEvent(event) {
       progressText.textContent = event.message;
+      const pct = STAGE_PROGRESS[event.stage];
+      if (pct) setProgressBar(pct);
       const logEntry = document.createElement('div');
       logEntry.textContent = `${stageLabel(event.stage)}: ${event.message}`;
       progressLog.appendChild(logEntry);
@@ -783,7 +815,6 @@
       const isVideo = /instagram|youtube|youtu\.be|tiktok/i.test(sourceUrl);
       if (isVideo && whisperBtn) {
         whisperBtn.classList.remove('hidden');
-        // Slug aus exportUrl extrahieren (letztes Pfad-Segment)
         whisperBtn.dataset.url = sourceUrl;
         if (exportUrl) {
           whisperBtn.dataset.slug = exportUrl.split('/').pop() || '';
@@ -791,7 +822,21 @@
       } else if (whisperBtn) {
         whisperBtn.classList.add('hidden');
       }
+      // Export-Confirm-Button immer zurücksetzen bei neuem Ergebnis
+      const exportBtn = document.getElementById('whisper-export-btn');
+      if (exportBtn) {
+        exportBtn.classList.add('hidden');
+        exportBtn.disabled = false;
+        exportBtn.className = exportBtn.className.replace('bg-green-600', 'bg-paprika').replace('hover:bg-green-700', 'hover:bg-paprika/80');
+        document.getElementById('whisper-export-label').textContent = 'Ergebnis speichern';
+      }
+      whisperPendingRecipe = null;
     }
+
+    // Zwischenspeicher für Whisper-Ergebnis (für Export-Bestätigung)
+    let whisperPendingRecipe = null;
+    let whisperPendingSlug = '';
+    let whisperPendingUrl = '';
 
     // Whisper-Retry Button Handler
     document.getElementById('whisper-retry-btn').addEventListener('click', async function() {
@@ -802,39 +847,47 @@
 
       btn.disabled = true;
       btn.querySelector('#whisper-retry-label').textContent = 'Whisper wird ausgeführt...';
+      document.getElementById('whisper-export-btn').classList.add('hidden');
       progress.classList.remove('hidden');
       error.classList.add('hidden');
       progressLog.innerHTML = '';
+      setProgressBar(5);
       progress.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       try {
         const params = new URLSearchParams({ url: sourceUrl });
-        if (slug) params.set('slug', slug);
         const evtSource = new EventSource(`/api/whisper-retry?${params}`);
 
         evtSource.addEventListener('classifying', (e) => handleEvent(JSON.parse(e.data)));
         evtSource.addEventListener('fetching', (e) => handleEvent(JSON.parse(e.data)));
         evtSource.addEventListener('transcribing', (e) => handleEvent(JSON.parse(e.data)));
         evtSource.addEventListener('extracting', (e) => handleEvent(JSON.parse(e.data)));
-        evtSource.addEventListener('exporting', (e) => handleEvent(JSON.parse(e.data)));
 
         evtSource.addEventListener('done', (e) => {
           evtSource.close();
           const event = JSON.parse(e.data);
           handleEvent(event);
+          // Rezept anzeigen — ohne exportUrl (noch nicht gespeichert)
           showResult(event.data);
+          // Whisper-Ergebnis für späteren Export merken
+          whisperPendingRecipe = event.data && event.data.recipe;
+          whisperPendingSlug = slug;
+          whisperPendingUrl = sourceUrl;
+          // Confirm-Button anzeigen
+          if (whisperPendingRecipe) {
+            const exportBtn = document.getElementById('whisper-export-btn');
+            const exportLabel = document.getElementById('whisper-export-label');
+            exportLabel.textContent = slug ? 'Mealie-Rezept aktualisieren' : 'In Mealie speichern';
+            exportBtn.classList.remove('hidden');
+          }
           btn.disabled = false;
           btn.querySelector('#whisper-retry-label').textContent = 'Mit Whisper erneut verarbeiten';
           progress.classList.add('hidden');
         });
 
         evtSource.addEventListener('error', (e) => {
-          if (e.data) {
-            const event = JSON.parse(e.data);
-            showError(event.message);
-          } else {
-            showError('Verbindung zum Server verloren.');
-          }
+          if (e.data) showError(JSON.parse(e.data).message);
+          else showError('Verbindung zum Server verloren.');
           evtSource.close();
           btn.disabled = false;
           btn.querySelector('#whisper-retry-label').textContent = 'Mit Whisper erneut verarbeiten';
@@ -852,6 +905,45 @@
         btn.disabled = false;
         btn.querySelector('#whisper-retry-label').textContent = 'Mit Whisper erneut verarbeiten';
         progress.classList.add('hidden');
+      }
+    });
+
+    // Whisper-Export Confirm Button Handler
+    document.getElementById('whisper-export-btn').addEventListener('click', async function() {
+      const btn = this;
+      if (!whisperPendingRecipe) return;
+      btn.disabled = true;
+      btn.querySelector('#whisper-export-label').textContent = 'Wird gespeichert...';
+
+      try {
+        const res = await fetch('/api/whisper-export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipe: whisperPendingRecipe,
+            sourceUrl: whisperPendingUrl,
+            slug: whisperPendingSlug || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        // Export-Link anzeigen
+        const notionLink = document.getElementById('notion-link');
+        const notionUrl = document.getElementById('notion-url');
+        const linkLabel = document.getElementById('export-link-label');
+        notionLink.classList.remove('hidden');
+        notionUrl.href = data.exportUrl;
+        if (linkLabel) linkLabel.textContent = data.backend === 'mealie' ? 'In Mealie ansehen' : 'In Notion ansehen';
+
+        btn.querySelector('#whisper-export-label').textContent = '✓ Gespeichert';
+        btn.classList.replace('bg-paprika', 'bg-green-600');
+        btn.classList.replace('hover:bg-paprika/80', 'hover:bg-green-700');
+        whisperPendingRecipe = null;
+      } catch (err) {
+        showError(err.message || 'Export fehlgeschlagen');
+        btn.disabled = false;
+        btn.querySelector('#whisper-export-label').textContent = 'Ergebnis speichern';
       }
     });
   </script>
