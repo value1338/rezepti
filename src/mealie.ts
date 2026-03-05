@@ -138,7 +138,7 @@ export async function updateRecipe(
     prepTime,
     totalTime,
     recipeYield: recipe.servings || undefined,
-    recipeCategory: recipe.tags.length > 0 ? recipe.tags : undefined,
+    recipeCategory: recipe.tags.length > 0 ? recipe.tags.map((tag) => ({ name: tag })) : [],
     notes: [{ title: "", text: notes }],
   };
 
